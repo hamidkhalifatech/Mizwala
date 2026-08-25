@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'prayer_times.dart';
 import 'mizwala_dial.dart';
 import 'settings_screen.dart';
 import 'notification_service.dart';
+import 'weather_service.dart';
 
 class MizwalaHomeScreen extends StatefulWidget {
   const MizwalaHomeScreen({super.key});
@@ -15,7 +17,9 @@ class MizwalaHomeScreen extends StatefulWidget {
 
 class _MizwalaHomeScreenState extends State<MizwalaHomeScreen> {
   Timer? _timer;
+  Timer? _weatherTimer;
   late PrayerTimes _times;
+  WeatherData? _weatherData;
 
   /// Heure Marrakech en temps réel (UTC+1 fixe).
   late DateTime _marrakechNow;
@@ -26,6 +30,11 @@ class _MizwalaHomeScreenState extends State<MizwalaHomeScreen> {
 
   late int _cachedDayKey;
 
+  // Sommeil
+  bool _sleepEnabled = true;
+  double _sleepBedtimeDecimal = 23.0;
+  double _sleepWakeupDecimal = 6.5;
+
   @override
   void initState() {
     super.initState();
@@ -35,13 +44,48 @@ class _MizwalaHomeScreenState extends State<MizwalaHomeScreen> {
     _cachedDayKey = now.year * 10000 + now.month * 100 + now.day;
     _times = MizwalaCalculator.compute(now.year, now.month, now.day);
 
+    _loadSleepPrefs();
+    _loadWeather();
+
     _timer = Timer.periodic(const Duration(seconds: 1), (_) => _tick());
+    _weatherTimer = Timer.periodic(const Duration(minutes: 15), (_) => _loadWeather());
   }
 
   @override
   void dispose() {
     _timer?.cancel();
+    _weatherTimer?.cancel();
     super.dispose();
+  }
+
+  Future<void> _loadSleepPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    final enabled = prefs.getBool(kPrefSleepEnabled) ?? true;
+    final bH = prefs.getInt(kPrefSleepBedtimeH) ?? 23;
+    final bM = prefs.getInt(kPrefSleepBedtimeM) ?? 0;
+    final wH = prefs.getInt(kPrefSleepWakeupH) ?? 6;
+    final wM = prefs.getInt(kPrefSleepWakeupM) ?? 30;
+
+    if (mounted) {
+      setState(() {
+        _sleepEnabled = enabled;
+        _sleepBedtimeDecimal = bH + bM / 60.0;
+        _sleepWakeupDecimal = wH + wM / 60.0;
+      });
+    }
+  }
+
+  Future<void> _loadWeather() async {
+    final weather = await WeatherService.fetchWeather(
+      currentHourDecimal: _currentHourDecimal,
+      sunriseDecimal: _times.sunrise,
+      sunsetDecimal: _times.maghrib,
+    );
+    if (mounted && weather != null) {
+      setState(() {
+        _weatherData = weather;
+      });
+    }
   }
 
   void _tick() {
@@ -104,6 +148,7 @@ class _MizwalaHomeScreenState extends State<MizwalaHomeScreen> {
         _cachedDayKey = picked.year * 10000 + picked.month * 100 + picked.day;
         _times = MizwalaCalculator.compute(picked.year, picked.month, picked.day);
       });
+      _loadWeather();
     }
   }
 
@@ -115,6 +160,7 @@ class _MizwalaHomeScreenState extends State<MizwalaHomeScreen> {
       _cachedDayKey = now.year * 10000 + now.month * 100 + now.day;
       _times = MizwalaCalculator.compute(now.year, now.month, now.day);
     });
+    _loadWeather();
   }
 
   @override
@@ -137,6 +183,10 @@ class _MizwalaHomeScreenState extends State<MizwalaHomeScreen> {
                 times: _times,
                 currentHourDecimal: _currentHourDecimal,
                 size: dialSize,
+                weatherData: _weatherData,
+                sleepBedtime: _sleepBedtimeDecimal,
+                sleepWakeup: _sleepWakeupDecimal,
+                sleepEnabled: _sleepEnabled,
               ),
               const SizedBox(height: 10),
               _buildClock(),
@@ -185,6 +235,7 @@ class _MizwalaHomeScreenState extends State<MizwalaHomeScreen> {
               context,
               MaterialPageRoute(builder: (_) => const SettingsScreen()),
             );
+            _loadSleepPrefs();
             NotificationService.reschedule(_times);
           },
         ),
@@ -292,6 +343,8 @@ class _MizwalaHomeScreenState extends State<MizwalaHomeScreen> {
       _PrayerEntry('Asr', times.asr, Icons.sunny_snowing),
       _PrayerEntry('Maghrib', times.maghrib, Icons.wb_twilight),
       _PrayerEntry('Icha', times.isha, Icons.nights_stay),
+      if (_sleepEnabled)
+        _PrayerEntry('Sommeil', _sleepBedtimeDecimal, Icons.bedtime_outlined),
     ];
 
     // Prochaine prière
@@ -326,58 +379,78 @@ class _MizwalaHomeScreenState extends State<MizwalaHomeScreen> {
           runSpacing: 12,
           alignment: WrapAlignment.center,
           children: entries.map((e) {
-            final isNext = keyMap[e.name] == nextKey;
-            return AnimatedContainer(
-              duration: const Duration(milliseconds: 400),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: isNext
-                    ? MizwalaTheme.brass.withOpacity(0.12)
-                    : Colors.transparent,
-                border: Border.all(
+            final isSleep = e.name == 'Sommeil';
+            final isNext = !isSleep && (keyMap[e.name] == nextKey);
+            return GestureDetector(
+              onTap: isSleep
+                  ? () async {
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                      );
+                      _loadSleepPrefs();
+                    }
+                  : null,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 400),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+                decoration: BoxDecoration(
                   color: isNext
-                      ? MizwalaTheme.brass.withOpacity(0.5)
-                      : MizwalaTheme.brass.withOpacity(0.12),
-                  width: 1,
+                      ? MizwalaTheme.brass.withOpacity(0.12)
+                      : (isSleep
+                          ? MizwalaTheme.nightBlue.withOpacity(0.35)
+                          : Colors.transparent),
+                  border: Border.all(
+                    color: isNext
+                        ? MizwalaTheme.brass.withOpacity(0.5)
+                        : (isSleep
+                            ? MizwalaTheme.brassDim.withOpacity(0.35)
+                            : MizwalaTheme.brass.withOpacity(0.12)),
+                    width: 1,
+                  ),
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(e.icon,
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          e.icon,
                           size: 11,
                           color: isNext
                               ? MizwalaTheme.brass
-                              : MizwalaTheme.muted),
-                      const SizedBox(width: 4),
-                      Text(
-                        e.name,
-                        style: GoogleFonts.cinzel(
-                          color: isNext
-                              ? MizwalaTheme.brass
-                              : MizwalaTheme.muted,
-                          fontSize: 10,
-                          letterSpacing: 1,
+                              : (isSleep ? MizwalaTheme.brassDim : MizwalaTheme.muted),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    MizwalaCalculator.format(e.time),
-                    style: GoogleFonts.cormorantGaramond(
-                      color: isNext
-                          ? MizwalaTheme.parchment
-                          : MizwalaTheme.parchment.withOpacity(0.7),
-                      fontSize: 20,
-                      fontWeight: FontWeight.w500,
+                        const SizedBox(width: 4),
+                        Text(
+                          e.name,
+                          style: GoogleFonts.cinzel(
+                            color: isNext
+                                ? MizwalaTheme.brass
+                                : (isSleep ? MizwalaTheme.brassDim : MizwalaTheme.muted),
+                            fontSize: 10,
+                            letterSpacing: 1,
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 3),
+                    Text(
+                      MizwalaCalculator.format(e.time),
+                      style: GoogleFonts.cormorantGaramond(
+                        color: isNext
+                            ? MizwalaTheme.parchment
+                            : (isSleep
+                                ? MizwalaTheme.parchment
+                                : MizwalaTheme.parchment.withOpacity(0.7)),
+                        fontSize: 19,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             );
           }).toList(),

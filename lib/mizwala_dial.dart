@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'prayer_times.dart';
+import 'weather_service.dart';
 
 /// Palette et repères de la direction artistique du prototype mizwala.html.
 class MizwalaTheme {
@@ -11,6 +12,7 @@ class MizwalaTheme {
   static const ochre = Color(0xFFA3402C);
   static const parchment = Color(0xFFECE3D0);
   static const muted = Color(0xFF8993A4);
+  static const nightBlue = Color(0xFF23354C);
 }
 
 const List<List<String>> kPrayerLabels = [
@@ -26,19 +28,34 @@ class MizwalaDial extends StatelessWidget {
   final PrayerTimes times;
   final double currentHourDecimal;
   final double size;
+  final WeatherData? weatherData;
+  final double? sleepBedtime;
+  final double? sleepWakeup;
+  final bool sleepEnabled;
 
   const MizwalaDial({
     super.key,
     required this.times,
     required this.currentHourDecimal,
     this.size = 320,
+    this.weatherData,
+    this.sleepBedtime = 23.0,
+    this.sleepWakeup = 6.5,
+    this.sleepEnabled = true,
   });
 
   @override
   Widget build(BuildContext context) {
     return CustomPaint(
       size: Size(size, size),
-      painter: _MizwalaPainter(times: times, currentHour: currentHourDecimal),
+      painter: _MizwalaPainter(
+        times: times,
+        currentHour: currentHourDecimal,
+        weatherData: weatherData,
+        sleepBedtime: sleepBedtime,
+        sleepWakeup: sleepWakeup,
+        sleepEnabled: sleepEnabled,
+      ),
     );
   }
 }
@@ -46,8 +63,19 @@ class MizwalaDial extends StatelessWidget {
 class _MizwalaPainter extends CustomPainter {
   final PrayerTimes times;
   final double currentHour;
+  final WeatherData? weatherData;
+  final double? sleepBedtime;
+  final double? sleepWakeup;
+  final bool sleepEnabled;
 
-  _MizwalaPainter({required this.times, required this.currentHour});
+  _MizwalaPainter({
+    required this.times,
+    required this.currentHour,
+    this.weatherData,
+    this.sleepBedtime,
+    this.sleepWakeup,
+    this.sleepEnabled = true,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -82,7 +110,7 @@ class _MizwalaPainter extends CustomPainter {
         ),
     );
 
-    // cercles décoratifs
+    // Cercles décoratifs
     final ringPaint = Paint()
       ..color = MizwalaTheme.brass.withOpacity(0.28)
       ..style = PaintingStyle.stroke
@@ -90,7 +118,7 @@ class _MizwalaPainter extends CustomPainter {
     canvas.drawCircle(center, 272 * scale, ringPaint);
     canvas.drawCircle(center, 182 * scale, ringPaint);
 
-    // Arc coloré entre Fajr et Icha (arc de la journée liturgique)
+    // Arc coloré de la journée liturgique (entre Fajr et Icha)
     final fajrAngle = MizwalaCalculator.angleFromTop(values['fajr']!, times.dhuhr);
     final ishaAngle = MizwalaCalculator.angleFromTop(values['isha']!, times.dhuhr);
     final arcPaint = Paint()
@@ -108,7 +136,27 @@ class _MizwalaPainter extends CustomPainter {
       arcPaint,
     );
 
-    // couronne des prières (fixe pour la journée, Dohr en haut)
+    // Arc de Sommeil (entre coucher et réveil)
+    if (sleepEnabled && sleepBedtime != null && sleepWakeup != null) {
+      final sleepStartAngle = MizwalaCalculator.angleFromTop(sleepBedtime!, times.dhuhr);
+      final sleepEndAngle = MizwalaCalculator.angleFromTop(sleepWakeup!, times.dhuhr);
+      final sleepArcPaint = Paint()
+        ..color = MizwalaTheme.nightBlue.withOpacity(0.35)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 6 * scale
+        ..strokeCap = StrokeCap.round;
+      final sleepStartRad = (sleepStartAngle - 90) * math.pi / 180;
+      final sleepSweepDeg = (sleepEndAngle - sleepStartAngle + 360) % 360;
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: 206 * scale),
+        sleepStartRad,
+        sleepSweepDeg * math.pi / 180,
+        false,
+        sleepArcPaint,
+      );
+    }
+
+    // Couronne des prières (fixe pour la journée, Dohr en haut)
     for (final entry in kPrayerLabels) {
       final key = entry[0];
       final label = entry[1];
@@ -145,7 +193,34 @@ class _MizwalaPainter extends CustomPainter {
       );
     }
 
-    // couronne des 24 heures (calée sur la même référence que ci-dessus)
+    // Repère réglable pour le Sommeil sur la même couronne
+    if (sleepEnabled && sleepBedtime != null) {
+      final a = MizwalaCalculator.angleFromTop(sleepBedtime!, times.dhuhr);
+
+      canvas.drawLine(
+        pt(a, 218),
+        pt(a, 248),
+        Paint()
+          ..color = MizwalaTheme.brassDim.withOpacity(0.4)
+          ..strokeWidth = 1 * scale,
+      );
+
+      canvas.drawCircle(
+        pt(a, 235),
+        4.4 * scale,
+        Paint()..color = const Color(0xFF6B7F96),
+      );
+
+      _drawLabel(
+        canvas,
+        'Sommeil',
+        pt(a, 260),
+        color: MizwalaTheme.muted,
+        fontSize: 12 * scale,
+      );
+    }
+
+    // Couronne des 24 heures (calée sur la même référence Dohr = 0°)
     for (int h = 0; h < 24; h++) {
       final a = MizwalaCalculator.angleFromTop(h.toDouble(), times.dhuhr);
       final major = h % 3 == 0;
@@ -170,7 +245,12 @@ class _MizwalaPainter extends CustomPainter {
       }
     }
 
-    // aiguille unique, un tour complet par 24h
+    // --- MÉTÉO EN TEMPS RÉEL AU CŒUR DU CADRAN ---
+    if (weatherData != null) {
+      _drawWeather(canvas, cx, cy, scale);
+    }
+
+    // Aiguille unique, un tour complet par 24h
     final needleAngle =
         MizwalaCalculator.angleFromTop(currentHour, times.dhuhr);
     final rad = needleAngle * math.pi / 180;
@@ -209,9 +289,9 @@ class _MizwalaPainter extends CustomPainter {
         ..strokeWidth = 3 * scale
         ..strokeCap = StrokeCap.round,
     );
+
     // Rose centrale
-    canvas.drawCircle(center, 10 * scale,
-        Paint()..color = MizwalaTheme.bg);
+    canvas.drawCircle(center, 10 * scale, Paint()..color = MizwalaTheme.bg);
     canvas.drawCircle(
         center,
         8 * scale,
@@ -219,8 +299,66 @@ class _MizwalaPainter extends CustomPainter {
           ..color = MizwalaTheme.brass
           ..style = PaintingStyle.stroke
           ..strokeWidth = 2 * scale);
-    canvas.drawCircle(center, 3 * scale,
-        Paint()..color = MizwalaTheme.brass);
+    canvas.drawCircle(center, 3 * scale, Paint()..color = MizwalaTheme.brass);
+  }
+
+  void _drawWeather(Canvas canvas, double cx, double cy, double scale) {
+    final weather = weatherData!;
+    final symbolPos = Offset(cx, cy + 56 * scale);
+
+    // Symbole météo (Emoji / Symbole dynamique : ☀️, 🌙, 🌅, 🌧️, ⛅...)
+    final symbolPainter = TextPainter(
+      text: TextSpan(
+        text: weather.iconSymbol,
+        style: TextStyle(
+          fontSize: 18 * scale,
+        ),
+      ),
+      textAlign: TextAlign.center,
+      textDirection: TextDirection.ltr,
+    )..layout();
+    symbolPainter.paint(
+      canvas,
+      symbolPos - Offset(symbolPainter.width / 2, symbolPainter.height / 2),
+    );
+
+    // Températures discrètes : "24° · Max 31°"
+    final tempStr = '${weather.currentTemp.round()}°  ·  Max ${weather.maxTemp.round()}°';
+    final tempPainter = TextPainter(
+      text: TextSpan(
+        text: tempStr,
+        style: GoogleFonts.cormorantGaramond(
+          color: MizwalaTheme.parchment.withOpacity(0.9),
+          fontSize: 13 * scale,
+          fontWeight: FontWeight.w400,
+          letterSpacing: 1.2,
+        ),
+      ),
+      textAlign: TextAlign.center,
+      textDirection: TextDirection.ltr,
+    )..layout();
+    tempPainter.paint(
+      canvas,
+      Offset(cx - tempPainter.width / 2, cy + 74 * scale),
+    );
+
+    // Libellé de condition météo (ex. "Ensoleillé", "Pluie", "Crépuscule")
+    final condPainter = TextPainter(
+      text: TextSpan(
+        text: weather.conditionLabel.toUpperCase(),
+        style: GoogleFonts.cinzel(
+          color: MizwalaTheme.brassDim,
+          fontSize: 8.5 * scale,
+          letterSpacing: 1.5,
+        ),
+      ),
+      textAlign: TextAlign.center,
+      textDirection: TextDirection.ltr,
+    )..layout();
+    condPainter.paint(
+      canvas,
+      Offset(cx - condPainter.width / 2, cy + 90 * scale),
+    );
   }
 
   void _drawLabel(
@@ -247,6 +385,10 @@ class _MizwalaPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _MizwalaPainter oldDelegate) {
     return oldDelegate.currentHour != currentHour ||
-        oldDelegate.times.dhuhr != times.dhuhr;
+        oldDelegate.times.dhuhr != times.dhuhr ||
+        oldDelegate.weatherData != weatherData ||
+        oldDelegate.sleepBedtime != sleepBedtime ||
+        oldDelegate.sleepWakeup != sleepWakeup ||
+        oldDelegate.sleepEnabled != sleepEnabled;
   }
 }

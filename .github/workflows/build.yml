@@ -34,13 +34,8 @@ jobs:
 
       - name: Copy our source files over the scaffold
         run: |
-          cp mizwala_src/lib/prayer_times.dart       mizwala_app/lib/prayer_times.dart
-          cp mizwala_src/lib/mizwala_dial.dart        mizwala_app/lib/mizwala_dial.dart
-          cp mizwala_src/lib/home_screen.dart         mizwala_app/lib/home_screen.dart
-          cp mizwala_src/lib/main.dart                mizwala_app/lib/main.dart
-          cp mizwala_src/lib/settings_screen.dart     mizwala_app/lib/settings_screen.dart
-          cp mizwala_src/lib/notification_service.dart mizwala_app/lib/notification_service.dart
-          cp mizwala_src/pubspec.yaml                  mizwala_app/pubspec.yaml
+          cp mizwala_src/lib/*.dart                  mizwala_app/lib/
+          cp mizwala_src/pubspec.yaml                mizwala_app/pubspec.yaml
           mkdir -p mizwala_app/assets/icon mizwala_app/assets/splash
           cp mizwala_src/assets/icon/mizwala_icon.png   mizwala_app/assets/icon/mizwala_icon.png
           cp mizwala_src/assets/splash/mizwala_splash.png mizwala_app/assets/splash/mizwala_splash.png

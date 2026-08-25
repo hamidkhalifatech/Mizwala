@@ -5,6 +5,12 @@ import 'mizwala_dial.dart';
 import 'notification_service.dart';
 import 'prayer_times.dart';
 
+const kPrefSleepEnabled = 'sleep_enabled';
+const kPrefSleepBedtimeH = 'sleep_bedtime_hour';
+const kPrefSleepBedtimeM = 'sleep_bedtime_minute';
+const kPrefSleepWakeupH = 'sleep_wakeup_hour';
+const kPrefSleepWakeupM = 'sleep_wakeup_minute';
+
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
 
@@ -17,6 +23,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late int _delayMin;
   bool _loading = true;
   bool _dirty = false;
+
+  // Sommeil
+  bool _sleepEnabled = true;
+  int _bedtimeHour = 23;
+  int _bedtimeMinute = 0;
+  int _wakeupHour = 6;
+  int _wakeupMinute = 30;
 
   // Horaires du jour pour l'affichage
   late PrayerTimes _todayTimes;
@@ -39,6 +52,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() {
       _enabled = enabledMap;
       _delayMin = prefs.getInt(kPrefDelay) ?? 10;
+      _sleepEnabled = prefs.getBool(kPrefSleepEnabled) ?? true;
+      _bedtimeHour = prefs.getInt(kPrefSleepBedtimeH) ?? 23;
+      _bedtimeMinute = prefs.getInt(kPrefSleepBedtimeM) ?? 0;
+      _wakeupHour = prefs.getInt(kPrefSleepWakeupH) ?? 6;
+      _wakeupMinute = prefs.getInt(kPrefSleepWakeupM) ?? 30;
       _loading = false;
     });
   }
@@ -49,6 +67,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
       await prefs.setBool('$kPrefPrefix${item.key}', _enabled[item.key] ?? true);
     }
     await prefs.setInt(kPrefDelay, _delayMin);
+
+    await prefs.setBool(kPrefSleepEnabled, _sleepEnabled);
+    await prefs.setInt(kPrefSleepBedtimeH, _bedtimeHour);
+    await prefs.setInt(kPrefSleepBedtimeM, _bedtimeMinute);
+    await prefs.setInt(kPrefSleepWakeupH, _wakeupHour);
+    await prefs.setInt(kPrefSleepWakeupM, _wakeupMinute);
+
     await NotificationService.reschedule(_todayTimes);
     setState(() => _dirty = false);
     if (mounted) {
@@ -62,6 +87,58 @@ class _SettingsScreenState extends State<SettingsScreen> {
           duration: const Duration(seconds: 2),
         ),
       );
+    }
+  }
+
+  Future<void> _pickBedtime() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(hour: _bedtimeHour, minute: _bedtimeMinute),
+      helpText: 'Heure de coucher',
+      builder: (context, child) => Theme(
+        data: ThemeData.dark().copyWith(
+          colorScheme: const ColorScheme.dark(
+            primary: MizwalaTheme.brass,
+            onPrimary: MizwalaTheme.bg,
+            surface: Color(0xFF1A1F2A),
+            onSurface: MizwalaTheme.parchment,
+          ),
+        ),
+        child: child!,
+      ),
+    );
+    if (picked != null) {
+      setState(() {
+        _bedtimeHour = picked.hour;
+        _bedtimeMinute = picked.minute;
+        _dirty = true;
+      });
+    }
+  }
+
+  Future<void> _pickWakeup() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(hour: _wakeupHour, minute: _wakeupMinute),
+      helpText: 'Heure de réveil',
+      builder: (context, child) => Theme(
+        data: ThemeData.dark().copyWith(
+          colorScheme: const ColorScheme.dark(
+            primary: MizwalaTheme.brass,
+            onPrimary: MizwalaTheme.bg,
+            surface: Color(0xFF1A1F2A),
+            onSurface: MizwalaTheme.parchment,
+          ),
+        ),
+        child: child!,
+      ),
+    );
+    if (picked != null) {
+      setState(() {
+        _wakeupHour = picked.hour;
+        _wakeupMinute = picked.minute;
+        _dirty = true;
+      });
     }
   }
 
@@ -106,7 +183,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
               padding:
                   const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               children: [
-                _sectionTitle('Notifications'),
+                _sectionTitle('Sommeil & Repos'),
+                const SizedBox(height: 8),
+                _sleepSection(),
+                const SizedBox(height: 20),
+                _sectionTitle('Notifications des Prières'),
                 const SizedBox(height: 4),
                 _delaySelector(),
                 const SizedBox(height: 16),
@@ -130,6 +211,140 @@ class _SettingsScreenState extends State<SettingsScreen> {
           letterSpacing: 2,
         ),
       );
+
+  Widget _sleepSection() {
+    final bedtimeStr =
+        '${_bedtimeHour.toString().padLeft(2, '0')}:${_bedtimeMinute.toString().padLeft(2, '0')}';
+    final wakeupStr =
+        '${_wakeupHour.toString().padLeft(2, '0')}:${_wakeupMinute.toString().padLeft(2, '0')}';
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: _sleepEnabled
+            ? MizwalaTheme.brass.withOpacity(0.06)
+            : Colors.transparent,
+        border: Border.all(
+          color: MizwalaTheme.brass.withOpacity(_sleepEnabled ? 0.3 : 0.12),
+        ),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        children: [
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            value: _sleepEnabled,
+            onChanged: (v) => setState(() {
+              _sleepEnabled = v;
+              _dirty = true;
+            }),
+            activeColor: MizwalaTheme.brass,
+            title: Text(
+              'Afficher le Sommeil sur le cadran',
+              style: GoogleFonts.cinzel(
+                color: _sleepEnabled
+                    ? MizwalaTheme.parchment
+                    : MizwalaTheme.muted,
+                fontSize: 13,
+                letterSpacing: 1,
+              ),
+            ),
+            subtitle: Text(
+              'Repère et arc de nuit sur le cycle 24h',
+              style: GoogleFonts.cormorantGaramond(
+                color: MizwalaTheme.muted,
+                fontSize: 14,
+              ),
+            ),
+            secondary: Icon(
+              Icons.bedtime_outlined,
+              color: _sleepEnabled ? MizwalaTheme.brass : MizwalaTheme.muted,
+            ),
+          ),
+          if (_sleepEnabled) ...[
+            const Divider(color: Colors.white12, height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: InkWell(
+                    onTap: _pickBedtime,
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 8),
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                            color: MizwalaTheme.brass.withOpacity(0.25)),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Coucher',
+                            style: GoogleFonts.cinzel(
+                              color: MizwalaTheme.brassDim,
+                              fontSize: 10,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            bedtimeStr,
+                            style: GoogleFonts.cormorantGaramond(
+                              color: MizwalaTheme.parchment,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: InkWell(
+                    onTap: _pickWakeup,
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 8),
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                            color: MizwalaTheme.brass.withOpacity(0.25)),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Réveil',
+                            style: GoogleFonts.cinzel(
+                              color: MizwalaTheme.brassDim,
+                              fontSize: 10,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            wakeupStr,
+                            style: GoogleFonts.cormorantGaramond(
+                              color: MizwalaTheme.parchment,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
 
   Widget _delaySelector() {
     const delays = [0, 5, 10, 15, 20];
@@ -268,8 +483,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
       child: Text(
         'Les horaires sont calculés localement pour Marrakech (31.63°N / 7.98°O), '
-        'UTC+1 fixe, méthode malikite. Aucune API ni connexion réseau n\'est '
-        'utilisée.',
+        'UTC+1 fixe, méthode malikite. La météo temps réel est actualisée automatiquement.',
         style: GoogleFonts.cormorantGaramond(
           color: MizwalaTheme.muted,
           fontSize: 13,
