@@ -1,0 +1,48 @@
+name: mizwala
+description: "Mizwala — horaires de prière pour Marrakech, calcul 100% local."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  google_fonts: ^6.2.1
+  flutter_local_notifications: ^18.0.1
+  timezone: ^0.9.4
+  shared_preferences: ^2.3.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  flutter_launcher_icons: ^0.14.1
+  flutter_native_splash: ^2.4.1
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/icon/mizwala_icon.png"
+  adaptive_icon_background: "#10141B"
+  adaptive_icon_foreground: "assets/icon/mizwala_icon_fg.png"
+  min_sdk_android: 21
+  web:
+    generate: false
+
+flutter_native_splash:
+  color: "#10141B"
+  image: assets/splash/mizwala_splash.png
+  android: true
+  ios: true
+  android_12:
+    image: assets/splash/mizwala_splash.png
+    color: "#10141B"
+    icon_background_color: "#10141B"
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/icon/
+    - assets/splash/
