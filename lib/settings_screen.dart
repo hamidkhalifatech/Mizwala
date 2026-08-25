@@ -32,11 +32,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _loadPrefs() async {
     final prefs = await SharedPreferences.getInstance();
+    final Map<String, bool> enabledMap = {};
+    for (final item in kNotifPrayers) {
+      enabledMap[item.key] = prefs.getBool('$kPrefPrefix${item.key}') ?? true;
+    }
     setState(() {
-      _enabled = {
-        for (final (key, _) in kNotifPrayers)
-          key: prefs.getBool('$kPrefPrefix$key') ?? true,
-      };
+      _enabled = enabledMap;
       _delayMin = prefs.getInt(kPrefDelay) ?? 10;
       _loading = false;
     });
@@ -44,8 +45,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _save() async {
     final prefs = await SharedPreferences.getInstance();
-    for (final (key, _) in kNotifPrayers) {
-      await prefs.setBool('$kPrefPrefix$key', _enabled[key] ?? true);
+    for (final item in kNotifPrayers) {
+      await prefs.setBool('$kPrefPrefix${item.key}', _enabled[item.key] ?? true);
     }
     await prefs.setInt(kPrefDelay, _delayMin);
     await NotificationService.reschedule(_todayTimes);
@@ -186,7 +187,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   List<Widget> _prayerToggles() {
     final map = _todayTimes.asMap();
-    return kNotifPrayers.map(((key, label)) {
+    return kNotifPrayers.map((item) {
+      final key = item.key;
+      final label = item.label;
       final time = MizwalaCalculator.format(map[key]!);
       final isOn = _enabled[key] ?? true;
       return Container(

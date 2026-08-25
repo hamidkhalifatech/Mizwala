@@ -10,14 +10,26 @@ import 'prayer_times.dart';
 const kPrefPrefix = 'notif_enabled_';
 const kPrefDelay = 'notif_delay_minutes';
 
+class PrayerNotificationItem {
+  final String key;
+  final String label;
+  const PrayerNotificationItem(this.key, this.label);
+}
+
 /// Liste des prières supportant des notifications.
-const kNotifPrayers = [
-  ('fajr', 'Fajr'),
-  ('dhuhr', 'Dohr'),
-  ('asr', 'Asr'),
-  ('maghrib', 'Maghrib'),
-  ('isha', 'Icha'),
+const List<PrayerNotificationItem> kNotifPrayers = [
+  PrayerNotificationItem('fajr', 'Fajr'),
+  PrayerNotificationItem('dhuhr', 'Dohr'),
+  PrayerNotificationItem('asr', 'Asr'),
+  PrayerNotificationItem('maghrib', 'Maghrib'),
+  PrayerNotificationItem('isha', 'Icha'),
 ];
+
+class _DaySchedule {
+  final DateTime dayRef;
+  final PrayerTimes times;
+  const _DaySchedule(this.dayRef, this.times);
+}
 
 class NotificationService {
   static final _plugin = FlutterLocalNotificationsPlugin();
@@ -75,14 +87,18 @@ class NotificationService {
         tomorrow.year, tomorrow.month, tomorrow.day);
 
     final days = [
-      (nowMarrakech, todayTimes),
-      (tomorrow, tomorrowTimes),
+      _DaySchedule(nowMarrakech, todayTimes),
+      _DaySchedule(tomorrow, tomorrowTimes),
     ];
 
     int notifId = 0;
-    for (final (dayRef, pTimes) in days) {
+    for (final schedule in days) {
+      final dayRef = schedule.dayRef;
+      final pTimes = schedule.times;
       final map = pTimes.asMap();
-      for (final (key, label) in kNotifPrayers) {
+      for (final prayerItem in kNotifPrayers) {
+        final key = prayerItem.key;
+        final label = prayerItem.label;
         final enabled = prefs.getBool('$kPrefPrefix$key') ?? true;
         if (!enabled) continue;
 
