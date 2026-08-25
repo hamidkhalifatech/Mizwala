@@ -14,28 +14,33 @@ class MizwalaHomeScreen extends StatefulWidget {
 }
 
 class _MizwalaHomeScreenState extends State<MizwalaHomeScreen> {
-  late final Timer _timer;
-  PrayerTimes? _times;
+  Timer? _timer;
+  late PrayerTimes _times;
 
   /// Heure Marrakech en temps réel (UTC+1 fixe).
-  DateTime _marrakechNow = DateTime.now().toUtc().add(const Duration(hours: 1));
+  late DateTime _marrakechNow;
 
   /// Date affichée sur le cadran (peut être une date manuelle).
-  DateTime _selectedDate = DateTime.now().toUtc().add(const Duration(hours: 1));
+  late DateTime _selectedDate;
   bool _isManualDate = false;
 
-  int? _cachedDayKey;
+  late int _cachedDayKey;
 
   @override
   void initState() {
     super.initState();
-    _tick();
+    final now = DateTime.now().toUtc().add(const Duration(hours: 1));
+    _marrakechNow = now;
+    _selectedDate = now;
+    _cachedDayKey = now.year * 10000 + now.month * 100 + now.day;
+    _times = MizwalaCalculator.compute(now.year, now.month, now.day);
+
     _timer = Timer.periodic(const Duration(seconds: 1), (_) => _tick());
   }
 
   @override
   void dispose() {
-    _timer.cancel();
+    _timer?.cancel();
     super.dispose();
   }
 
@@ -50,17 +55,18 @@ class _MizwalaHomeScreenState extends State<MizwalaHomeScreen> {
     if (dayKey != _cachedDayKey) {
       newTimes = MizwalaCalculator.compute(ref.year, ref.month, ref.day);
       _cachedDayKey = dayKey;
-      // Replanifier les notifications si on est sur la date du jour
       if (!_isManualDate) {
         NotificationService.reschedule(newTimes);
       }
     }
 
-    setState(() {
-      _marrakechNow = now;
-      if (!_isManualDate) _selectedDate = now;
-      if (newTimes != null) _times = newTimes;
-    });
+    if (mounted) {
+      setState(() {
+        _marrakechNow = now;
+        if (!_isManualDate) _selectedDate = now;
+        if (newTimes != null) _times = newTimes;
+      });
+    }
   }
 
   double get _currentHourDecimal =>
@@ -95,53 +101,51 @@ class _MizwalaHomeScreenState extends State<MizwalaHomeScreen> {
       setState(() {
         _selectedDate = picked;
         _isManualDate = !isSameDay;
-        _cachedDayKey = null; // Force recalcul
+        _cachedDayKey = picked.year * 10000 + picked.month * 100 + picked.day;
+        _times = MizwalaCalculator.compute(picked.year, picked.month, picked.day);
       });
     }
   }
 
   void _resetToToday() {
+    final now = DateTime.now().toUtc().add(const Duration(hours: 1));
     setState(() {
       _isManualDate = false;
-      _selectedDate = _marrakechNow;
-      _cachedDayKey = null;
+      _selectedDate = now;
+      _cachedDayKey = now.year * 10000 + now.month * 100 + now.day;
+      _times = MizwalaCalculator.compute(now.year, now.month, now.day);
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final times = _times;
     final size = MediaQuery.of(context).size;
     final dialSize = (size.width - 40).clamp(260.0, 420.0);
 
     return Scaffold(
       backgroundColor: MizwalaTheme.bg,
       body: SafeArea(
-        child: times == null
-            ? const Center(
-                child: CircularProgressIndicator(color: MizwalaTheme.brass))
-            : SingleChildScrollView(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                child: Column(
-                  children: [
-                    _buildHeader(context),
-                    const SizedBox(height: 4),
-                    _buildDateRow(),
-                    const SizedBox(height: 16),
-                    MizwalaDial(
-                      times: times,
-                      currentHourDecimal: _currentHourDecimal,
-                      size: dialSize,
-                    ),
-                    const SizedBox(height: 10),
-                    _buildClock(),
-                    const SizedBox(height: 20),
-                    _buildLegend(times),
-                    const SizedBox(height: 16),
-                  ],
-                ),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          child: Column(
+            children: [
+              _buildHeader(context),
+              const SizedBox(height: 4),
+              _buildDateRow(),
+              const SizedBox(height: 16),
+              MizwalaDial(
+                times: _times,
+                currentHourDecimal: _currentHourDecimal,
+                size: dialSize,
               ),
+              const SizedBox(height: 10),
+              _buildClock(),
+              const SizedBox(height: 20),
+              _buildLegend(_times),
+              const SizedBox(height: 16),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -181,10 +185,7 @@ class _MizwalaHomeScreenState extends State<MizwalaHomeScreen> {
               context,
               MaterialPageRoute(builder: (_) => const SettingsScreen()),
             );
-            // Replanifier les notifs après retour des réglages
-            if (_times != null) {
-              NotificationService.reschedule(_times!);
-            }
+            NotificationService.reschedule(_times);
           },
         ),
       ],

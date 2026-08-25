@@ -37,100 +37,98 @@ class NotificationService {
 
   static Future<void> init() async {
     if (_initialized) return;
-    tz_data.initializeTimeZones();
+    try {
+      tz_data.initializeTimeZones();
 
-    const androidSettings =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
-    const iosSettings = DarwinInitializationSettings(
-      requestAlertPermission: true,
-      requestBadgePermission: true,
-      requestSoundPermission: true,
-    );
-    const settings = InitializationSettings(
-      android: androidSettings,
-      iOS: iosSettings,
-    );
-    await _plugin.initialize(settings);
+      const androidSettings =
+          AndroidInitializationSettings('@mipmap/ic_launcher');
+      const iosSettings = DarwinInitializationSettings(
+        requestAlertPermission: true,
+        requestBadgePermission: true,
+        requestSoundPermission: true,
+      );
+      const settings = InitializationSettings(
+        android: androidSettings,
+        iOS: iosSettings,
+      );
+      await _plugin.initialize(settings);
 
-    // Créer le canal Android
-    const channel = AndroidNotificationChannel(
-      'mizwala_prayers',
-      'Horaires de prière',
-      description: 'Rappels avant chaque prière',
-      importance: Importance.high,
-      playSound: true,
-      enableLights: true,
-      ledColor: Color(0xFFC9A24B),
-    );
-    await _plugin
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(channel);
+      // Créer le canal Android
+      const channel = AndroidNotificationChannel(
+        'mizwala_prayers',
+        'Horaires de prière',
+        description: 'Rappels avant chaque prière',
+        importance: Importance.high,
+        playSound: true,
+        enableLights: true,
+        ledColor: Color(0xFFC9A24B),
+      );
+      await _plugin
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>()
+          ?.createNotificationChannel(channel);
 
-    _initialized = true;
+      _initialized = true;
+    } catch (e) {
+      debugPrint('Notification init error: $e');
+    }
   }
 
   /// Replanifie toutes les notifications pour aujourd'hui et demain.
   static Future<void> reschedule(PrayerTimes todayTimes) async {
-    await _plugin.cancelAll();
+    try {
+      await _plugin.cancelAll();
 
-    final prefs = await SharedPreferences.getInstance();
-    final delayMin = prefs.getInt(kPrefDelay) ?? 10;
+      final prefs = await SharedPreferences.getInstance();
+      final delayMin = prefs.getInt(kPrefDelay) ?? 10;
 
-    // UTC Marrakech fixe = UTC+1
-    final nowUtc = DateTime.now().toUtc();
-    final nowMarrakech = nowUtc.add(const Duration(hours: 1));
+      // UTC Marrakech fixe = UTC+1
+      final nowUtc = DateTime.now().toUtc();
+      final nowMarrakech = nowUtc.add(const Duration(hours: 1));
 
-    // Calculer pour aujourd'hui et demain
-    final tomorrow = nowMarrakech.add(const Duration(days: 1));
-    final tomorrowTimes = MizwalaCalculator.compute(
-        tomorrow.year, tomorrow.month, tomorrow.day);
+      // Calculer pour aujourd'hui et demain
+      final tomorrow = nowMarrakech.add(const Duration(days: 1));
+      final tomorrowTimes = MizwalaCalculator.compute(
+          tomorrow.year, tomorrow.month, tomorrow.day);
 
-    final days = [
-      _DaySchedule(nowMarrakech, todayTimes),
-      _DaySchedule(tomorrow, tomorrowTimes),
-    ];
+      final days = [
+        _DaySchedule(nowMarrakech, todayTimes),
+        _DaySchedule(tomorrow, tomorrowTimes),
+      ];
 
-    int notifId = 0;
-    for (final schedule in days) {
-      final dayRef = schedule.dayRef;
-      final pTimes = schedule.times;
-      final map = pTimes.asMap();
-      for (final prayerItem in kNotifPrayers) {
-        final key = prayerItem.key;
-        final label = prayerItem.label;
-        final enabled = prefs.getBool('$kPrefPrefix$key') ?? true;
-        if (!enabled) continue;
+      int notifId = 0;
+      for (final schedule in days) {
+        final dayRef = schedule.dayRef;
+        final pTimes = schedule.times;
+        final map = pTimes.asMap();
+        for (final prayerItem in kNotifPrayers) {
+          final key = prayerItem.key;
+          final label = prayerItem.label;
+          final enabled = prefs.getBool('$kPrefPrefix$key') ?? true;
+          if (!enabled) continue;
 
-        final prayerDecimal = map[key]!;
-        final prayerHour = prayerDecimal.floor();
-        final prayerMin = ((prayerDecimal - prayerHour) * 60).round();
+          final prayerDecimal = map[key]!;
+          final prayerHour = prayerDecimal.floor();
+          final prayerMin = ((prayerDecimal - prayerHour) * 60).round();
 
-        // Heure de la notification = heure de la prière - délai
-        DateTime notifUtc = DateTime.utc(
-          dayRef.year,
-          dayRef.month,
-          dayRef.day,
-          prayerHour,
-          prayerMin,
-        )
-            .subtract(Duration(minutes: delayMin))
-            .subtract(const Duration(hours: 1)); // UTC Marrakech → vrai UTC
+          // Heure de la notification = heure de la prière - délai
+          DateTime notifUtc = DateTime.utc(
+            dayRef.year,
+            dayRef.month,
+            dayRef.day,
+            prayerHour,
+            prayerMin,
+          )
+              .subtract(Duration(minutes: delayMin))
+              .subtract(const Duration(hours: 1)); // UTC Marrakech → vrai UTC
 
-        // Ne pas planifier dans le passé
-        if (notifUtc.isBefore(nowUtc)) continue;
+          // Ne pas planifier dans le passé
+          if (notifUtc.isBefore(nowUtc)) continue;
 
-        final tzTime = tz.TZDateTime.from(notifUtc, tz.UTC);
-        final timeStr = MizwalaCalculator.format(prayerDecimal);
+          final tzTime = tz.TZDateTime.from(notifUtc, tz.UTC);
+          final timeStr = MizwalaCalculator.format(prayerDecimal);
 
-        await _plugin.zonedSchedule(
-          notifId++,
-          '🕌 $label — $timeStr',
-          delayMin == 0
-              ? 'C\'est l\'heure de la prière'
-              : 'Dans $delayMin min',
-          tzTime,
-          NotificationDetails(
+          final details = NotificationDetails(
             android: AndroidNotificationDetails(
               'mizwala_prayers',
               'Horaires de prière',
@@ -145,24 +143,60 @@ class NotificationService {
               presentBadge: true,
               presentSound: true,
             ),
-          ),
-          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-          uiLocalNotificationDateInterpretation:
-              UILocalNotificationDateInterpretation.absoluteTime,
-        );
+          );
+
+          try {
+            await _plugin.zonedSchedule(
+              notifId++,
+              '🕌 $label — $timeStr',
+              delayMin == 0
+                  ? 'C\'est l\'heure de la prière'
+                  : 'Dans $delayMin min',
+              tzTime,
+              details,
+              androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+              uiLocalNotificationDateInterpretation:
+                  UILocalNotificationDateInterpretation.absoluteTime,
+            );
+          } catch (_) {
+            // Fallback si l'appareil restreint les alarmes exactes
+            try {
+              await _plugin.zonedSchedule(
+                notifId++,
+                '🕌 $label — $timeStr',
+                delayMin == 0
+                    ? 'C\'est l\'heure de la prière'
+                    : 'Dans $delayMin min',
+                tzTime,
+                details,
+                androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+                uiLocalNotificationDateInterpretation:
+                    UILocalNotificationDateInterpretation.absoluteTime,
+              );
+            } catch (e) {
+              debugPrint('Schedule notification error: $e');
+            }
+          }
+        }
       }
+    } catch (e) {
+      debugPrint('Reschedule error: $e');
     }
   }
 
   /// Demander la permission iOS (à appeler au premier lancement).
   static Future<bool> requestPermission() async {
-    final impl = _plugin.resolvePlatformSpecificImplementation<
-        IOSFlutterLocalNotificationsPlugin>();
-    final result = await impl?.requestPermissions(
-      alert: true,
-      badge: true,
-      sound: true,
-    );
-    return result ?? true;
+    try {
+      final impl = _plugin.resolvePlatformSpecificImplementation<
+          IOSFlutterLocalNotificationsPlugin>();
+      final result = await impl?.requestPermissions(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+      return result ?? true;
+    } catch (_) {
+      return true;
+    }
   }
 }

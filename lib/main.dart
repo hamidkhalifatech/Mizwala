@@ -8,29 +8,38 @@ import 'prayer_times.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Orientation portrait uniquement
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-    DeviceOrientation.portraitDown,
-  ]);
+  // Orientation portrait
+  try {
+    await SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+    ]);
+  } catch (_) {}
 
-  // Couleur de la barre de statut
-  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-    statusBarColor: Colors.transparent,
-    statusBarIconBrightness: Brightness.light,
-    systemNavigationBarColor: MizwalaTheme.bg,
-    systemNavigationBarIconBrightness: Brightness.light,
-  ));
+  // Style barre de statut
+  try {
+    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.light,
+      systemNavigationBarColor: MizwalaTheme.bg,
+      systemNavigationBarIconBrightness: Brightness.light,
+    ));
+  } catch (_) {}
 
-  // Initialiser les notifications
-  await NotificationService.init();
-
-  // Planification initiale (horaires du jour Marrakech)
-  final now = DateTime.now().toUtc().add(const Duration(hours: 1));
-  final todayTimes = MizwalaCalculator.compute(now.year, now.month, now.day);
-  await NotificationService.reschedule(todayTimes);
-
+  // Lancement immédiat de l'UI pour ne jamais bloquer l'écran
   runApp(const MizwalaApp());
+
+  // Initialisation des notifications en arrière-plan
+  Future.microtask(() async {
+    try {
+      await NotificationService.init();
+      final now = DateTime.now().toUtc().add(const Duration(hours: 1));
+      final todayTimes = MizwalaCalculator.compute(now.year, now.month, now.day);
+      await NotificationService.reschedule(todayTimes);
+    } catch (e) {
+      debugPrint('Background notification init error: $e');
+    }
+  });
 }
 
 class MizwalaApp extends StatelessWidget {
