@@ -25,7 +25,7 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.0'
+          flutter-version: '3.27.4'
           channel: 'stable'
           cache: true
 
@@ -46,6 +46,11 @@ jobs:
           cp mizwala_src/assets/splash/mizwala_splash.png mizwala_app/assets/splash/mizwala_splash.png
           cp mizwala_src/android/app/src/main/AndroidManifest.xml \
              mizwala_app/android/app/src/main/AndroidManifest.xml
+
+      - name: Upgrade Kotlin version for compatibility
+        working-directory: mizwala_app
+        run: |
+          sed -i 's/org.jetbrains.kotlin.android" version "[^"]*"/org.jetbrains.kotlin.android" version "2.1.0"/' android/settings.gradle
 
       - name: Get dependencies
         working-directory: mizwala_app
