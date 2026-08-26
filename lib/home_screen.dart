@@ -1,12 +1,17 @@
 import 'dart:async';
+import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'prayer_times.dart';
 import 'mizwala_dial.dart';
 import 'settings_screen.dart';
 import 'notification_service.dart';
 import 'weather_service.dart';
+
+const List<String> kFrenchMonths = [
+  'janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin',
+  'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'
+];
 
 class MizwalaHomeScreen extends StatefulWidget {
   const MizwalaHomeScreen({super.key});
@@ -48,7 +53,8 @@ class _MizwalaHomeScreenState extends State<MizwalaHomeScreen> {
     _loadWeather();
 
     _timer = Timer.periodic(const Duration(seconds: 1), (_) => _tick());
-    _weatherTimer = Timer.periodic(const Duration(minutes: 15), (_) => _loadWeather());
+    _weatherTimer =
+        Timer.periodic(const Duration(minutes: 15), (_) => _loadWeather());
   }
 
   @override
@@ -129,10 +135,10 @@ class _MizwalaHomeScreenState extends State<MizwalaHomeScreen> {
       builder: (context, child) => Theme(
         data: ThemeData.dark().copyWith(
           colorScheme: const ColorScheme.dark(
-            primary: MizwalaTheme.brass,
-            onPrimary: MizwalaTheme.bg,
-            surface: Color(0xFF1A1F2A),
-            onSurface: MizwalaTheme.parchment,
+            primary: MizwalaTheme.accent,
+            onPrimary: Colors.black,
+            surface: Color(0xFF1C1C20),
+            onSurface: Colors.white,
           ),
         ),
         child: child!,
@@ -146,7 +152,8 @@ class _MizwalaHomeScreenState extends State<MizwalaHomeScreen> {
         _selectedDate = picked;
         _isManualDate = !isSameDay;
         _cachedDayKey = picked.year * 10000 + picked.month * 100 + picked.day;
-        _times = MizwalaCalculator.compute(picked.year, picked.month, picked.day);
+        _times =
+            MizwalaCalculator.compute(picked.year, picked.month, picked.day);
       });
       _loadWeather();
     }
@@ -163,44 +170,94 @@ class _MizwalaHomeScreenState extends State<MizwalaHomeScreen> {
     _loadWeather();
   }
 
+  /// Calcule la prochaine prière et le temps restant
+  ({String key, String label, double time, int diffHours, int diffMinutes})
+      _getNextPrayer() {
+    final map = _times.asMap();
+    final prayers = [
+      (key: 'fajr', label: 'Fajr', time: _times.fajr),
+      (key: 'sunrise', label: 'Chourouk', time: _times.sunrise),
+      (key: 'dhuhr', label: 'Dohr', time: _times.dhuhr),
+      (key: 'asr', label: 'Asr', time: _times.asr),
+      (key: 'maghrib', label: 'Maghrib', time: _times.maghrib),
+      (key: 'isha', label: 'Icha', time: _times.isha),
+    ];
+
+    final nowH = _currentHourDecimal;
+    var selected = prayers[0];
+    bool found = false;
+
+    for (final p in prayers) {
+      if (map[p.key]! > nowH) {
+        selected = p;
+        found = true;
+        break;
+      }
+    }
+
+    // Si toutes les prières du jour sont passées, prochaine = Fajr du lendemain
+    double diff = selected.time - nowH;
+    if (!found || diff < 0) {
+      diff += 24.0;
+    }
+
+    final diffHours = diff.floor();
+    final diffMinutes = ((diff - diffHours) * 60).round();
+
+    return (
+      key: selected.key,
+      label: selected.label,
+      time: selected.time,
+      diffHours: diffHours,
+      diffMinutes: diffMinutes,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-    final dialSize = (size.width - 40).clamp(260.0, 420.0);
+    final nextPrayer = _getNextPrayer();
+    final screenWidth = MediaQuery.of(context).size.width;
+    final dialSize = (screenWidth - 80).clamp(220.0, 320.0);
 
     return Scaffold(
-      backgroundColor: MizwalaTheme.bg,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          child: Column(
-            children: [
-              _buildHeader(context),
-              const SizedBox(height: 4),
-              _buildDateRow(),
-              const SizedBox(height: 16),
-              MizwalaDial(
-                times: _times,
-                currentHourDecimal: _currentHourDecimal,
-                size: dialSize,
-                weatherData: _weatherData,
-                sleepBedtime: _sleepBedtimeDecimal,
-                sleepWakeup: _sleepWakeupDecimal,
-                sleepEnabled: _sleepEnabled,
-              ),
-              const SizedBox(height: 10),
-              _buildClock(),
-              const SizedBox(height: 20),
-              _buildLegend(_times),
-              const SizedBox(height: 16),
+      backgroundColor: MizwalaTheme.bg0,
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: RadialGradient(
+            center: Alignment(0.0, -0.6),
+            radius: 1.2,
+            colors: [
+              Color(0xFF23222A),
+              Color(0xFF0A0A0C),
             ],
+            stops: [0.0, 0.7],
+          ),
+        ),
+        child: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _buildHeader(),
+                const SizedBox(height: 14),
+                _buildDialCard(dialSize),
+                const SizedBox(height: 12),
+                _buildNextPrayerCard(nextPrayer),
+                const SizedBox(height: 12),
+                _buildChipsStrip(nextPrayer.key),
+                const SizedBox(height: 16),
+                _buildTabBar(),
+                const SizedBox(height: 10),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildHeader(BuildContext context) {
+  Widget _buildHeader() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -208,126 +265,127 @@ class _MizwalaHomeScreenState extends State<MizwalaHomeScreen> {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'MARRAKECH · 31.63°N',
-              style: GoogleFonts.cinzel(
-                color: MizwalaTheme.brass,
-                letterSpacing: 1.5,
-                fontSize: 10,
+            const Text(
+              'Mizwala',
+              style: TextStyle(
+                color: MizwalaTheme.label1,
+                fontSize: 28,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.02,
               ),
             ),
+            const SizedBox(height: 2),
             Text(
-              'Mizwala',
-              style: GoogleFonts.cinzel(
-                color: MizwalaTheme.parchment,
-                fontSize: 28,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 2,
+              'Marrakech',
+              style: TextStyle(
+                color: MizwalaTheme.label2,
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
               ),
             ),
           ],
         ),
-        IconButton(
-          icon: const Icon(Icons.settings_outlined, color: MizwalaTheme.brass),
-          tooltip: 'Réglages',
-          onPressed: () async {
-            await Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const SettingsScreen()),
-            );
-            _loadSleepPrefs();
-            NotificationService.reschedule(_times);
-          },
+        _GlassBox(
+          borderRadius: 17,
+          padding: const EdgeInsets.all(8),
+          child: InkWell(
+            onTap: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const SettingsScreen()),
+              );
+              _loadSleepPrefs();
+              NotificationService.reschedule(_times);
+            },
+            borderRadius: BorderRadius.circular(17),
+            child: const Icon(
+              Icons.settings_outlined,
+              color: MizwalaTheme.label2,
+              size: 20,
+            ),
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildDateRow() {
+  Widget _buildDialCard(double dialSize) {
+    final hh = _marrakechNow.hour.toString().padLeft(2, '0');
+    final mm = _marrakechNow.minute.toString().padLeft(2, '0');
     final dateStr =
-        '${_selectedDate.day.toString().padLeft(2, '0')}/${_selectedDate.month.toString().padLeft(2, '0')}/${_selectedDate.year}';
+        '${_selectedDate.day} ${kFrenchMonths[_selectedDate.month - 1]}';
 
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        if (_isManualDate)
-          GestureDetector(
-            onTap: _resetToToday,
-            child: Row(
-              children: [
-                const Icon(Icons.refresh, color: MizwalaTheme.ochre, size: 14),
-                const SizedBox(width: 4),
-                Text(
-                  'Aujourd\'hui',
-                  style: GoogleFonts.cinzel(
-                    color: MizwalaTheme.ochre,
-                    fontSize: 10,
-                  ),
-                ),
-                const SizedBox(width: 10),
-              ],
+    return _GlassBox(
+      borderRadius: 28,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+      child: Column(
+        children: [
+          MizwalaDial(
+            times: _times,
+            currentHourDecimal: _currentHourDecimal,
+            size: dialSize,
+            weatherData: _weatherData,
+            sleepBedtime: _sleepBedtimeDecimal,
+            sleepWakeup: _sleepWakeupDecimal,
+            sleepEnabled: _sleepEnabled,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '$hh:$mm',
+            style: const TextStyle(
+              color: MizwalaTheme.label1,
+              fontSize: 34,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.01,
+              fontFeatures: [FontFeature.tabularFigures()],
             ),
           ),
-        GestureDetector(
-          onTap: _pickDate,
-          child: Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            decoration: BoxDecoration(
-              border: Border.all(
-                  color: MizwalaTheme.brass.withOpacity(0.4), width: 1),
-              borderRadius: BorderRadius.circular(20),
-            ),
+          const SizedBox(height: 3),
+          GestureDetector(
+            onTap: _pickDate,
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
+                if (_isManualDate) ...[
+                  GestureDetector(
+                    onTap: _resetToToday,
+                    child: const Row(
+                      children: [
+                        Icon(Icons.refresh,
+                            color: MizwalaTheme.accent, size: 13),
+                        SizedBox(width: 3),
+                        Text(
+                          'Aujourd\'hui',
+                          style: TextStyle(
+                            color: MizwalaTheme.accent,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        SizedBox(width: 8),
+                      ],
+                    ),
+                  ),
+                ],
                 Text(
                   dateStr,
-                  style: GoogleFonts.cinzel(
+                  style: TextStyle(
                     color: _isManualDate
-                        ? MizwalaTheme.brass
-                        : MizwalaTheme.muted,
-                    fontSize: 11,
-                    letterSpacing: 1,
+                        ? MizwalaTheme.accent
+                        : MizwalaTheme.label2,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w400,
                   ),
                 ),
-                const SizedBox(width: 6),
+                const SizedBox(width: 4),
                 Icon(
                   Icons.calendar_today_outlined,
                   size: 12,
                   color: _isManualDate
-                      ? MizwalaTheme.brass
-                      : MizwalaTheme.muted,
+                      ? MizwalaTheme.accent
+                      : MizwalaTheme.label3,
                 ),
               ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildClock() {
-    final h = MizwalaCalculator.format(_currentHourDecimal);
-    final seconds = _marrakechNow.second.toString().padLeft(2, '0');
-    return RichText(
-      text: TextSpan(
-        children: [
-          TextSpan(
-            text: h,
-            style: GoogleFonts.cormorantGaramond(
-              color: MizwalaTheme.parchment,
-              fontSize: 48,
-              fontWeight: FontWeight.w300,
-              letterSpacing: 3,
-            ),
-          ),
-          TextSpan(
-            text: ':$seconds',
-            style: GoogleFonts.cormorantGaramond(
-              color: MizwalaTheme.muted,
-              fontSize: 28,
-              fontWeight: FontWeight.w300,
             ),
           ),
         ],
@@ -335,134 +393,262 @@ class _MizwalaHomeScreenState extends State<MizwalaHomeScreen> {
     );
   }
 
-  Widget _buildLegend(PrayerTimes times) {
-    final entries = [
-      _PrayerEntry('Fajr', times.fajr, Icons.brightness_3),
-      _PrayerEntry('Chourouk', times.sunrise, Icons.wb_twilight),
-      _PrayerEntry('Dohr', times.dhuhr, Icons.wb_sunny),
-      _PrayerEntry('Asr', times.asr, Icons.sunny_snowing),
-      _PrayerEntry('Maghrib', times.maghrib, Icons.wb_twilight),
-      _PrayerEntry('Icha', times.isha, Icons.nights_stay),
-      if (_sleepEnabled)
-        _PrayerEntry('Sommeil', _sleepBedtimeDecimal, Icons.bedtime_outlined),
+  Widget _buildNextPrayerCard(
+      ({String key, String label, double time, int diffHours, int diffMinutes})
+          next) {
+    final diffStr = next.diffHours > 0
+        ? 'dans ${next.diffHours}h ${next.diffMinutes}min'
+        : 'dans ${next.diffMinutes}min';
+
+    return _GlassBox(
+      borderRadius: 20,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'PROCHAINE PRIÈRE',
+                style: TextStyle(
+                  color: MizwalaTheme.label2,
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.06,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                next.label,
+                style: const TextStyle(
+                  color: MizwalaTheme.label1,
+                  fontSize: 19,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: MizwalaTheme.accentDim,
+              borderRadius: BorderRadius.circular(100),
+            ),
+            child: Text(
+              diffStr,
+              style: const TextStyle(
+                color: MizwalaTheme.accent,
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                fontFeatures: [FontFeature.tabularFigures()],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildChipsStrip(String nextKey) {
+    final chips = [
+      ('fajr', 'Fajr', _times.fajr),
+      ('sunrise', 'Chourouk', _times.sunrise),
+      ('dhuhr', 'Dohr', _times.dhuhr),
+      ('asr', 'Asr', _times.asr),
+      ('maghrib', 'Maghrib', _times.maghrib),
+      ('isha', 'Icha', _times.isha),
+      if (_sleepEnabled) ('sleep', 'Sommeil', _sleepBedtimeDecimal),
     ];
 
-    // Prochaine prière
-    String? nextKey;
-    if (!_isManualDate) {
-      final nowH = _currentHourDecimal;
-      final map = times.asMap();
-      final keys = ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha'];
-      for (final k in keys) {
-        if (map[k]! > nowH) {
-          nextKey = k;
-          break;
-        }
-      }
-    }
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      physics: const BouncingScrollPhysics(),
+      child: Row(
+        children: chips.map((c) {
+          final isActive = c.$1 == nextKey;
+          final isSleep = c.$1 == 'sleep';
 
-    final keyMap = {
-      'Fajr': 'fajr',
-      'Chourouk': 'sunrise',
-      'Dohr': 'dhuhr',
-      'Asr': 'asr',
-      'Maghrib': 'maghrib',
-      'Icha': 'isha',
-    };
-
-    return Column(
-      children: [
-        Divider(color: MizwalaTheme.brass.withOpacity(0.2), height: 1),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 8,
-          runSpacing: 12,
-          alignment: WrapAlignment.center,
-          children: entries.map((e) {
-            final isSleep = e.name == 'Sommeil';
-            final isNext = !isSleep && (keyMap[e.name] == nextKey);
-            return GestureDetector(
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: GestureDetector(
               onTap: isSleep
                   ? () async {
                       await Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                        MaterialPageRoute(
+                            builder: (_) => const SettingsScreen()),
                       );
                       _loadSleepPrefs();
                     }
                   : null,
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 400),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
-                decoration: BoxDecoration(
-                  color: isNext
-                      ? MizwalaTheme.brass.withOpacity(0.12)
-                      : (isSleep
-                          ? MizwalaTheme.nightBlue.withOpacity(0.35)
-                          : Colors.transparent),
-                  border: Border.all(
-                    color: isNext
-                        ? MizwalaTheme.brass.withOpacity(0.5)
-                        : (isSleep
-                            ? MizwalaTheme.brassDim.withOpacity(0.35)
-                            : MizwalaTheme.brass.withOpacity(0.12)),
-                    width: 1,
-                  ),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Column(
-                  children: [
-                    Row(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
+                    constraints: const BoxConstraints(minWidth: 64),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: isActive
+                          ? MizwalaTheme.accentDim
+                          : MizwalaTheme.glass,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: isActive
+                            ? MizwalaTheme.accentBorder
+                            : MizwalaTheme.glassBorder,
+                        width: 1,
+                      ),
+                    ),
+                    child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(
-                          e.icon,
-                          size: 11,
-                          color: isNext
-                              ? MizwalaTheme.brass
-                              : (isSleep ? MizwalaTheme.brassDim : MizwalaTheme.muted),
-                        ),
-                        const SizedBox(width: 4),
                         Text(
-                          e.name,
-                          style: GoogleFonts.cinzel(
-                            color: isNext
-                                ? MizwalaTheme.brass
-                                : (isSleep ? MizwalaTheme.brassDim : MizwalaTheme.muted),
+                          c.$2.toUpperCase(),
+                          style: TextStyle(
+                            color: isActive
+                                ? MizwalaTheme.accent
+                                : MizwalaTheme.label2,
                             fontSize: 10,
-                            letterSpacing: 1,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.04,
+                          ),
+                        ),
+                        const SizedBox(height: 5),
+                        Text(
+                          MizwalaCalculator.format(c.$3),
+                          style: TextStyle(
+                            color: isActive
+                                ? MizwalaTheme.accent
+                                : MizwalaTheme.label1,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            fontFeatures: const [FontFeature.tabularFigures()],
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 3),
-                    Text(
-                      MizwalaCalculator.format(e.time),
-                      style: GoogleFonts.cormorantGaramond(
-                        color: isNext
-                            ? MizwalaTheme.parchment
-                            : (isSleep
-                                ? MizwalaTheme.parchment
-                                : MizwalaTheme.parchment.withOpacity(0.7)),
-                        fontSize: 19,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
-            );
-          }).toList(),
-        ),
-      ],
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildTabBar() {
+    return _GlassBox(
+      borderRadius: 22,
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _buildTabItem(icon: '◐', label: 'Cadran', active: true),
+          _buildTabItem(
+            icon: '▤',
+            label: 'Horaires',
+            active: false,
+            onTap: _pickDate,
+          ),
+          _buildTabItem(
+            icon: '⚙',
+            label: 'Réglages',
+            active: false,
+            onTap: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const SettingsScreen()),
+              );
+              _loadSleepPrefs();
+              NotificationService.reschedule(_times);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTabItem({
+    required String icon,
+    required String label,
+    required bool active,
+    VoidCallback? onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            icon,
+            style: TextStyle(
+              fontSize: 16,
+              color: active ? MizwalaTheme.accent : MizwalaTheme.label3,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 10.5,
+              fontWeight: active ? FontWeight.w600 : FontWeight.w400,
+              color: active ? MizwalaTheme.accent : MizwalaTheme.label3,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
 
-class _PrayerEntry {
-  final String name;
-  final double time;
-  final IconData icon;
-  const _PrayerEntry(this.name, this.time, this.icon);
+/// Conteneur générique Liquid Glass avec flou gaussien et bordure spéculaire
+class _GlassBox extends StatelessWidget {
+  final Widget child;
+  final double borderRadius;
+  final EdgeInsetsGeometry? padding;
+  final Color? color;
+  final Border? border;
+
+  const _GlassBox({
+    required this.child,
+    this.borderRadius = 20,
+    this.padding,
+    this.color,
+    this.border,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(borderRadius),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+        child: Container(
+          padding: padding,
+          decoration: BoxDecoration(
+            color: color ?? MizwalaTheme.glass,
+            borderRadius: BorderRadius.circular(borderRadius),
+            border: border ??
+                Border.all(
+                  color: MizwalaTheme.glassBorder,
+                  width: 1,
+                ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.35),
+                blurRadius: 25,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: child,
+        ),
+      ),
+    );
+  }
 }

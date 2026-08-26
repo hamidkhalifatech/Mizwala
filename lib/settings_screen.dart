@@ -1,5 +1,5 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'mizwala_dial.dart';
 import 'notification_service.dart';
@@ -79,11 +79,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
+          content: const Text(
             'Réglages sauvegardés',
-            style: GoogleFonts.cinzel(color: MizwalaTheme.bg),
+            style: TextStyle(
+              color: Colors.black,
+              fontWeight: FontWeight.w600,
+            ),
           ),
-          backgroundColor: MizwalaTheme.brass,
+          backgroundColor: MizwalaTheme.accent,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           duration: const Duration(seconds: 2),
         ),
       );
@@ -98,10 +103,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       builder: (context, child) => Theme(
         data: ThemeData.dark().copyWith(
           colorScheme: const ColorScheme.dark(
-            primary: MizwalaTheme.brass,
-            onPrimary: MizwalaTheme.bg,
-            surface: Color(0xFF1A1F2A),
-            onSurface: MizwalaTheme.parchment,
+            primary: MizwalaTheme.accent,
+            onPrimary: Colors.black,
+            surface: Color(0xFF1C1C20),
+            onSurface: Colors.white,
           ),
         ),
         child: child!,
@@ -124,10 +129,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       builder: (context, child) => Theme(
         data: ThemeData.dark().copyWith(
           colorScheme: const ColorScheme.dark(
-            primary: MizwalaTheme.brass,
-            onPrimary: MizwalaTheme.bg,
-            surface: Color(0xFF1A1F2A),
-            onSurface: MizwalaTheme.parchment,
+            primary: MizwalaTheme.accent,
+            onPrimary: Colors.black,
+            surface: Color(0xFF1C1C20),
+            onSurface: Colors.white,
           ),
         ),
         child: child!,
@@ -145,32 +150,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: MizwalaTheme.bg,
+      backgroundColor: MizwalaTheme.bg0,
       appBar: AppBar(
-        backgroundColor: MizwalaTheme.bg,
+        backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new,
-              color: MizwalaTheme.brass, size: 18),
+              color: MizwalaTheme.label1, size: 18),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Text(
+        title: const Text(
           'Réglages',
-          style: GoogleFonts.cinzel(
-            color: MizwalaTheme.parchment,
+          style: TextStyle(
+            color: MizwalaTheme.label1,
             fontSize: 18,
-            letterSpacing: 2,
+            fontWeight: FontWeight.w600,
           ),
         ),
         actions: [
           if (_dirty)
             TextButton(
               onPressed: _save,
-              child: Text(
-                'Sauvegarder',
-                style: GoogleFonts.cinzel(
-                  color: MizwalaTheme.brass,
-                  fontSize: 12,
+              child: const Text(
+                'Enregistrer',
+                style: TextStyle(
+                  color: MizwalaTheme.accent,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
@@ -178,37 +184,52 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
       body: _loading
           ? const Center(
-              child: CircularProgressIndicator(color: MizwalaTheme.brass))
-          : ListView(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              children: [
-                _sectionTitle('Sommeil & Repos'),
-                const SizedBox(height: 8),
-                _sleepSection(),
-                const SizedBox(height: 20),
-                _sectionTitle('Notifications des Prières'),
-                const SizedBox(height: 4),
-                _delaySelector(),
-                const SizedBox(height: 16),
-                _sectionTitle('Prières'),
-                const SizedBox(height: 8),
-                ..._prayerToggles(),
-                const SizedBox(height: 24),
-                _saveButton(),
-                const SizedBox(height: 32),
-                _infoCard(),
-              ],
+              child: CircularProgressIndicator(color: MizwalaTheme.accent))
+          : Container(
+              decoration: const BoxDecoration(
+                gradient: RadialGradient(
+                  center: Alignment(0.0, -0.8),
+                  radius: 1.2,
+                  colors: [
+                    Color(0xFF23222A),
+                    Color(0xFF0A0A0C),
+                  ],
+                  stops: [0.0, 0.7],
+                ),
+              ),
+              child: ListView(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                children: [
+                  _sectionTitle('Sommeil & Repos'),
+                  const SizedBox(height: 8),
+                  _sleepSection(),
+                  const SizedBox(height: 20),
+                  _sectionTitle('Notifications des Prières'),
+                  const SizedBox(height: 4),
+                  _delaySelector(),
+                  const SizedBox(height: 16),
+                  _sectionTitle('Prières'),
+                  const SizedBox(height: 8),
+                  ..._prayerToggles(),
+                  const SizedBox(height: 24),
+                  _saveButton(),
+                  const SizedBox(height: 28),
+                  _infoCard(),
+                  const SizedBox(height: 20),
+                ],
+              ),
             ),
     );
   }
 
   Widget _sectionTitle(String t) => Text(
         t.toUpperCase(),
-        style: GoogleFonts.cinzel(
-          color: MizwalaTheme.brass,
+        style: const TextStyle(
+          color: MizwalaTheme.label2,
           fontSize: 11,
-          letterSpacing: 2,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.08,
         ),
       );
 
@@ -218,17 +239,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final wakeupStr =
         '${_wakeupHour.toString().padLeft(2, '0')}:${_wakeupMinute.toString().padLeft(2, '0')}';
 
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: _sleepEnabled
-            ? MizwalaTheme.brass.withOpacity(0.06)
-            : Colors.transparent,
-        border: Border.all(
-          color: MizwalaTheme.brass.withOpacity(_sleepEnabled ? 0.3 : 0.12),
-        ),
-        borderRadius: BorderRadius.circular(10),
-      ),
+    return _GlassCard(
+      borderRadius: 18,
+      padding: const EdgeInsets.all(14),
       child: Column(
         children: [
           SwitchListTile(
@@ -238,62 +251,62 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _sleepEnabled = v;
               _dirty = true;
             }),
-            activeColor: MizwalaTheme.brass,
-            title: Text(
+            activeColor: MizwalaTheme.accent,
+            title: const Text(
               'Afficher le Sommeil sur le cadran',
-              style: GoogleFonts.cinzel(
-                color: _sleepEnabled
-                    ? MizwalaTheme.parchment
-                    : MizwalaTheme.muted,
-                fontSize: 13,
-                letterSpacing: 1,
+              style: TextStyle(
+                color: MizwalaTheme.label1,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
               ),
             ),
-            subtitle: Text(
-              'Repère et arc de nuit sur le cycle 24h',
-              style: GoogleFonts.cormorantGaramond(
-                color: MizwalaTheme.muted,
-                fontSize: 14,
+            subtitle: const Text(
+              'Repère et arc de repos sur le cycle 24h',
+              style: TextStyle(
+                color: MizwalaTheme.label2,
+                fontSize: 12.5,
               ),
             ),
             secondary: Icon(
               Icons.bedtime_outlined,
-              color: _sleepEnabled ? MizwalaTheme.brass : MizwalaTheme.muted,
+              color: _sleepEnabled ? MizwalaTheme.accent : MizwalaTheme.label3,
             ),
           ),
           if (_sleepEnabled) ...[
-            const Divider(color: Colors.white12, height: 16),
+            const Divider(color: Color(0x1AFFFFFF), height: 16),
             Row(
               children: [
                 Expanded(
                   child: InkWell(
                     onTap: _pickBedtime,
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(12),
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 8),
+                          horizontal: 12, vertical: 10),
                       decoration: BoxDecoration(
-                        border: Border.all(
-                            color: MizwalaTheme.brass.withOpacity(0.25)),
-                        borderRadius: BorderRadius.circular(8),
+                        color: MizwalaTheme.glass,
+                        border: Border.all(color: MizwalaTheme.glassBorder),
+                        borderRadius: BorderRadius.circular(12),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
+                          const Text(
                             'Coucher',
-                            style: GoogleFonts.cinzel(
-                              color: MizwalaTheme.brassDim,
-                              fontSize: 10,
+                            style: TextStyle(
+                              color: MizwalaTheme.label2,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
-                          const SizedBox(height: 2),
+                          const SizedBox(height: 3),
                           Text(
                             bedtimeStr,
-                            style: GoogleFonts.cormorantGaramond(
-                              color: MizwalaTheme.parchment,
-                              fontSize: 20,
-                              fontWeight: FontWeight.w500,
+                            style: const TextStyle(
+                              color: MizwalaTheme.label1,
+                              fontSize: 19,
+                              fontWeight: FontWeight.w600,
+                              fontFeatures: [FontFeature.tabularFigures()],
                             ),
                           ),
                         ],
@@ -305,32 +318,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 Expanded(
                   child: InkWell(
                     onTap: _pickWakeup,
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(12),
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 8),
+                          horizontal: 12, vertical: 10),
                       decoration: BoxDecoration(
-                        border: Border.all(
-                            color: MizwalaTheme.brass.withOpacity(0.25)),
-                        borderRadius: BorderRadius.circular(8),
+                        color: MizwalaTheme.glass,
+                        border: Border.all(color: MizwalaTheme.glassBorder),
+                        borderRadius: BorderRadius.circular(12),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
+                          const Text(
                             'Réveil',
-                            style: GoogleFonts.cinzel(
-                              color: MizwalaTheme.brassDim,
-                              fontSize: 10,
+                            style: TextStyle(
+                              color: MizwalaTheme.label2,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
-                          const SizedBox(height: 2),
+                          const SizedBox(height: 3),
                           Text(
                             wakeupStr,
-                            style: GoogleFonts.cormorantGaramond(
-                              color: MizwalaTheme.parchment,
-                              fontSize: 20,
-                              fontWeight: FontWeight.w500,
+                            style: const TextStyle(
+                              color: MizwalaTheme.label1,
+                              fontSize: 19,
+                              fontWeight: FontWeight.w600,
+                              fontFeatures: [FontFeature.tabularFigures()],
                             ),
                           ),
                         ],
@@ -351,13 +366,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.only(top: 8, bottom: 10),
+        const Padding(
+          padding: EdgeInsets.only(top: 6, bottom: 8),
           child: Text(
             'Préavis avant chaque prière',
-            style: GoogleFonts.cormorantGaramond(
-              color: MizwalaTheme.parchment,
-              fontSize: 16,
+            style: TextStyle(
+              color: MizwalaTheme.label2,
+              fontSize: 13,
             ),
           ),
         ),
@@ -371,25 +386,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 _dirty = true;
               }),
               child: AnimatedContainer(
-                duration: const Duration(milliseconds: 250),
+                duration: const Duration(milliseconds: 200),
                 padding: const EdgeInsets.symmetric(
-                    horizontal: 14, vertical: 7),
+                    horizontal: 14, vertical: 8),
                 decoration: BoxDecoration(
                   color: selected
-                      ? MizwalaTheme.brass
-                      : MizwalaTheme.brass.withOpacity(0.08),
+                      ? MizwalaTheme.accent
+                      : MizwalaTheme.glass,
                   border: Border.all(
                     color: selected
-                        ? MizwalaTheme.brass
-                        : MizwalaTheme.brass.withOpacity(0.3),
+                        ? MizwalaTheme.accent
+                        : MizwalaTheme.glassBorder,
                   ),
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(100),
                 ),
                 child: Text(
                   d == 0 ? 'À l\'heure' : '$d min',
-                  style: GoogleFonts.cinzel(
-                    color: selected ? MizwalaTheme.bg : MizwalaTheme.parchment,
-                    fontSize: 12,
+                  style: TextStyle(
+                    color: selected ? Colors.black : MizwalaTheme.label1,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
@@ -407,43 +423,44 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final label = item.label;
       final time = MizwalaCalculator.format(map[key]!);
       final isOn = _enabled[key] ?? true;
+
       return Container(
         margin: const EdgeInsets.only(bottom: 8),
-        decoration: BoxDecoration(
-          color: isOn
-              ? MizwalaTheme.brass.withOpacity(0.07)
-              : Colors.transparent,
-          border: Border.all(
-            color: MizwalaTheme.brass.withOpacity(isOn ? 0.3 : 0.12),
-          ),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: SwitchListTile(
-          value: isOn,
-          onChanged: (v) => setState(() {
-            _enabled[key] = v;
-            _dirty = true;
-          }),
-          activeColor: MizwalaTheme.brass,
-          title: Text(
-            label,
-            style: GoogleFonts.cinzel(
-              color: isOn ? MizwalaTheme.parchment : MizwalaTheme.muted,
-              fontSize: 14,
-              letterSpacing: 1,
+        child: _GlassCard(
+          borderRadius: 16,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+          child: SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            value: isOn,
+            onChanged: (v) => setState(() {
+              _enabled[key] = v;
+              _dirty = true;
+            }),
+            activeColor: MizwalaTheme.accent,
+            title: Text(
+              label,
+              style: TextStyle(
+                color: isOn ? MizwalaTheme.label1 : MizwalaTheme.label3,
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
             ),
-          ),
-          subtitle: Text(
-            time,
-            style: GoogleFonts.cormorantGaramond(
-              color: isOn ? MizwalaTheme.brass : MizwalaTheme.muted,
-              fontSize: 16,
+            subtitle: Text(
+              time,
+              style: TextStyle(
+                color: isOn ? MizwalaTheme.accent : MizwalaTheme.label3,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
             ),
-          ),
-          secondary: Icon(
-            isOn ? Icons.notifications_active_outlined : Icons.notifications_off_outlined,
-            color: isOn ? MizwalaTheme.brass : MizwalaTheme.muted,
-            size: 20,
+            secondary: Icon(
+              isOn
+                  ? Icons.notifications_active_outlined
+                  : Icons.notifications_off_outlined,
+              color: isOn ? MizwalaTheme.accent : MizwalaTheme.label3,
+              size: 20,
+            ),
           ),
         ),
       );
@@ -456,18 +473,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
       child: ElevatedButton(
         onPressed: _save,
         style: ElevatedButton.styleFrom(
-          backgroundColor: MizwalaTheme.brass,
-          foregroundColor: MizwalaTheme.bg,
+          backgroundColor: MizwalaTheme.accent,
+          foregroundColor: Colors.black,
           padding: const EdgeInsets.symmetric(vertical: 14),
+          elevation: 0,
           shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         ),
-        child: Text(
+        child: const Text(
           'Sauvegarder les réglages',
-          style: GoogleFonts.cinzel(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 1,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.02,
           ),
         ),
       ),
@@ -475,19 +493,47 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _infoCard() {
-    return Container(
+    return _GlassCard(
+      borderRadius: 16,
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        border: Border.all(color: MizwalaTheme.muted.withOpacity(0.2)),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(
+      child: const Text(
         'Les horaires sont calculés localement pour Marrakech (31.63°N / 7.98°O), '
         'UTC+1 fixe, méthode malikite. La météo temps réel est actualisée automatiquement.',
-        style: GoogleFonts.cormorantGaramond(
-          color: MizwalaTheme.muted,
-          fontSize: 13,
-          height: 1.5,
+        style: TextStyle(
+          color: MizwalaTheme.label3,
+          fontSize: 12.5,
+          height: 1.4,
+        ),
+      ),
+    );
+  }
+}
+
+class _GlassCard extends StatelessWidget {
+  final Widget child;
+  final double borderRadius;
+  final EdgeInsetsGeometry? padding;
+
+  const _GlassCard({
+    required this.child,
+    this.borderRadius = 16,
+    this.padding,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(borderRadius),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+        child: Container(
+          padding: padding,
+          decoration: BoxDecoration(
+            color: MizwalaTheme.glass,
+            borderRadius: BorderRadius.circular(borderRadius),
+            border: Border.all(color: MizwalaTheme.glassBorder),
+          ),
+          child: child,
         ),
       ),
     );

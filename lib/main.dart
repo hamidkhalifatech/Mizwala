@@ -21,7 +21,7 @@ void main() async {
     SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
       statusBarIconBrightness: Brightness.light,
-      systemNavigationBarColor: MizwalaTheme.bg,
+      systemNavigationBarColor: MizwalaTheme.bg0,
       systemNavigationBarIconBrightness: Brightness.light,
     ));
   } catch (_) {}
@@ -51,13 +51,13 @@ class MizwalaApp extends StatelessWidget {
       title: 'Mizwala',
       debugShowCheckedModeBanner: false,
       theme: ThemeData.dark().copyWith(
-        scaffoldBackgroundColor: MizwalaTheme.bg,
+        scaffoldBackgroundColor: MizwalaTheme.bg0,
         colorScheme: const ColorScheme.dark(
-          primary: MizwalaTheme.brass,
-          secondary: MizwalaTheme.ochre,
-          surface: MizwalaTheme.bg,
+          primary: MizwalaTheme.accent,
+          secondary: MizwalaTheme.accentDim,
+          surface: MizwalaTheme.bg0,
         ),
-        splashColor: MizwalaTheme.brass.withOpacity(0.1),
+        splashColor: MizwalaTheme.accent.withOpacity(0.1),
         highlightColor: Colors.transparent,
       ),
       home: const MizwalaHomeScreen(),
