@@ -108,7 +108,7 @@ class _MizwalaApplePainter extends CustomPainter {
     final aSunrise = MizwalaCalculator.angleFromTop(times.sunrise, times.dhuhr);
     final aMaghrib = MizwalaCalculator.angleFromTop(times.maghrib, times.dhuhr);
     final dayArcPaint = Paint()
-      ..color = MizwalaTheme.accent.withOpacity(0.30)
+      ..color = MizwalaTheme.accent.withOpacity(0.32)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.5 * scale
       ..strokeCap = StrokeCap.round;
@@ -180,57 +180,45 @@ class _MizwalaApplePainter extends CustomPainter {
       canvas.drawCircle(m, 3.4 * scale, sleepMarkPaint);
     }
 
-    // 6. Curseur Soleil / Lune sur l'arc (suivant l'heure actuelle)
-    final needleAngle =
-        MizwalaCalculator.angleFromTop(currentHour, times.dhuhr);
+    // 6. Curseur Soleil / Lune (indique l'heure actuelle sur le cadran 24h)
+    final timeAngle = MizwalaCalculator.angleFromTop(currentHour, times.dhuhr);
     final isDay = currentHour >= times.sunrise && currentHour <= times.maghrib;
-    final sunPos = pt(needleAngle, 120);
+    final sunPos = pt(timeAngle, 120);
 
-    // Halo
+    // Halo extérieur doux
+    final outerHaloPaint = Paint()
+      ..color = isDay
+          ? MizwalaTheme.accent.withOpacity(0.18)
+          : const Color(0x1FFFFFFF);
+    canvas.drawCircle(sunPos, 11 * scale, outerHaloPaint);
+
+    // Halo intérieur
     final haloPaint = Paint()
       ..color = isDay
-          ? MizwalaTheme.accent.withOpacity(0.25)
-          : const Color(0x2EFFFFFF);
-    canvas.drawCircle(sunPos, 7 * scale, haloPaint);
+          ? MizwalaTheme.accent.withOpacity(0.40)
+          : const Color(0x38FFFFFF);
+    canvas.drawCircle(sunPos, 6.5 * scale, haloPaint);
 
-    // Noyau
+    // Noyau lumineux principal
     final corePaint = Paint()
-      ..color = isDay ? MizwalaTheme.accent : const Color(0xD9FFFFFF);
-    canvas.drawCircle(sunPos, 3.4 * scale, corePaint);
+      ..color = isDay ? MizwalaTheme.accent : const Color(0xF0FFFFFF);
+    canvas.drawCircle(sunPos, 3.8 * scale, corePaint);
 
-    // 7. Aiguille unique orange
-    final rad = needleAngle * math.pi / 180;
-    final tip = Offset(
-      cx + 90 * scale * math.sin(rad),
-      cy - 90 * scale * math.cos(rad),
-    );
-
-    // Ligne aiguille
-    final needlePaint = Paint()
-      ..color = MizwalaTheme.accent
-      ..strokeWidth = 3 * scale
-      ..strokeCap = StrokeCap.round;
-    canvas.drawLine(center, tip, needlePaint);
-
-    // Point pivot central
-    final centerDotPaint = Paint()..color = MizwalaTheme.accent;
-    canvas.drawCircle(center, 4.5 * scale, centerDotPaint);
-
-    // 8. Météo temps réel au centre (discret)
+    // 7. MÉTÉO EN TEMPS RÉEL (Grand format au cœur du cadran)
     if (weatherData != null) {
-      _drawWeatherInfo(canvas, cx, cy, scale);
+      _drawWeatherCenter(canvas, cx, cy, scale);
     }
   }
 
-  void _drawWeatherInfo(Canvas canvas, double cx, double cy, double scale) {
+  void _drawWeatherCenter(Canvas canvas, double cx, double cy, double scale) {
     final weather = weatherData!;
 
-    // Symbole météo (☀️, 🌙, 🌅, 🌧️, ⛅...)
+    // 1. Grand Symbole météo (☀️, 🌙, 🌅, 🌧️, ⛅...)
     final symbolPainter = TextPainter(
       text: TextSpan(
         text: weather.iconSymbol,
         style: TextStyle(
-          fontSize: 16 * scale,
+          fontSize: 38 * scale,
         ),
       ),
       textAlign: TextAlign.center,
@@ -238,18 +226,19 @@ class _MizwalaApplePainter extends CustomPainter {
     )..layout();
     symbolPainter.paint(
       canvas,
-      Offset(cx - symbolPainter.width / 2, cy + 42 * scale),
+      Offset(cx - symbolPainter.width / 2, cy - 30 * scale),
     );
 
-    // Température actuelle et max : "24° · Max 31°"
-    final tempStr = '${weather.currentTemp.round()}° · Max ${weather.maxTemp.round()}°';
+    // 2. Température actuelle (ex: "28°")
+    final tempStr = '${weather.currentTemp.round()}°';
     final tempPainter = TextPainter(
       text: TextSpan(
         text: tempStr,
         style: TextStyle(
-          color: MizwalaTheme.label2,
-          fontSize: 11.5 * scale,
-          fontWeight: FontWeight.w500,
+          color: MizwalaTheme.label1,
+          fontSize: 22 * scale,
+          fontWeight: FontWeight.w700,
+          letterSpacing: -0.02,
           fontFeatures: const [FontFeature.tabularFigures()],
           fontFamily: '-apple-system',
         ),
@@ -259,7 +248,28 @@ class _MizwalaApplePainter extends CustomPainter {
     )..layout();
     tempPainter.paint(
       canvas,
-      Offset(cx - tempPainter.width / 2, cy + 62 * scale),
+      Offset(cx - tempPainter.width / 2, cy + 14 * scale),
+    );
+
+    // 3. Température max et condition (ex: "Max 34° · Ensoleillé")
+    final subStr = 'Max ${weather.maxTemp.round()}° · ${weather.conditionLabel}';
+    final subPainter = TextPainter(
+      text: TextSpan(
+        text: subStr,
+        style: TextStyle(
+          color: MizwalaTheme.label2,
+          fontSize: 10.5 * scale,
+          fontWeight: FontWeight.w500,
+          fontFeatures: const [FontFeature.tabularFigures()],
+          fontFamily: '-apple-system',
+        ),
+      ),
+      textAlign: TextAlign.center,
+      textDirection: TextDirection.ltr,
+    )..layout();
+    subPainter.paint(
+      canvas,
+      Offset(cx - subPainter.width / 2, cy + 42 * scale),
     );
   }
 
