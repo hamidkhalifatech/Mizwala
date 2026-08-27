@@ -561,9 +561,9 @@ class _MizwalaHomeScreenState extends State<MizwalaHomeScreen> {
                   ],
                 ),
               ),
-            );
-          }).toList(),
-        ),
+            ),
+          );
+        }).toList(),
       ),
     );
   }
