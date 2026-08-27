@@ -8,8 +8,9 @@ class MizwalaTheme {
   static const bg = Color(0xFF0B0B0E);
   static const card = Color(0xFF0B0B0E);
   static const teal = Color(0xFF30B0C7);   // Prières (Fajr, Chourouk, Asr, Maghrib, Icha)
-  static const amber = Color(0xFFFF9F0A);  // Dohr + Soleil
+  static const amber = Color(0xFFFF9F0A);  // Dohr + Soleil + Chrono
   static const indigo = Color(0xFF5E5CE6); // Sommeil
+  static const emerald = Color(0xFF10B981); // Qibla
   static const moon = Color(0xFFC7D2E0);   // Lune
   static const label1 = Color(0xF2FFFFFF); // rgba(255,255,255,0.95)
   static const label2 = Color(0x99FFFFFF); // rgba(255,255,255,0.60)
@@ -27,6 +28,7 @@ class MizwalaDial extends StatelessWidget {
   final double sleepBedtime;
   final double sleepWakeup;
   final bool sleepEnabled;
+  final double? qiblaAngle;
   final ValueChanged<double>? onSleepBedtimeChanged;
   final ValueChanged<double>? onSleepWakeupChanged;
 
@@ -39,6 +41,7 @@ class MizwalaDial extends StatelessWidget {
     this.sleepBedtime = 23.0,
     this.sleepWakeup = 6.5,
     this.sleepEnabled = true,
+    this.qiblaAngle,
     this.onSleepBedtimeChanged,
     this.onSleepWakeupChanged,
   });
@@ -97,7 +100,7 @@ class MizwalaDial extends StatelessWidget {
       child: Stack(
         alignment: Alignment.center,
         children: [
-          // 1. Anneau interactif (prières, arc diurne bleu nuit, sommeil, durée sommeil, soleil/lune)
+          // 1. Anneau interactif (prières, arc diurne bleu nuit, sommeil, indicateur Qibla, soleil/lune)
           _InteractiveDialRing(
             size: size,
             times: times,
@@ -105,11 +108,12 @@ class MizwalaDial extends StatelessWidget {
             sleepBedtime: sleepBedtime,
             sleepWakeup: sleepWakeup,
             sleepEnabled: sleepEnabled,
+            qiblaAngle: qiblaAngle,
             onSleepBedtimeChanged: onSleepBedtimeChanged,
             onSleepWakeupChanged: onSleepWakeupChanged,
           ),
 
-          // 2. Disque central dynamique avec Chrono bien visible sous Max/Min
+          // 2. Disque central dynamique avec Chrono Orange bien visible sous Max/Min
           AnimatedContainer(
             duration: const Duration(milliseconds: 600),
             curve: Curves.easeInOut,
@@ -169,7 +173,7 @@ class MizwalaDial extends StatelessWidget {
                     fontFamily: '-apple-system',
                   ),
                 ),
-                // Chrono avant sommeil bien visible en bas de Max/Min
+                // Chrono Orange avant sommeil bien visible en bas de Max/Min
                 if (sleepCountdownBadge.isNotEmpty) ...[
                   const SizedBox(height: 3),
                   Container(
@@ -186,7 +190,7 @@ class MizwalaDial extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 10.0 * scale,
                         fontWeight: FontWeight.w700,
-                        color: MizwalaTheme.amber, // Orange vif très visible
+                        color: MizwalaTheme.amber,
                         letterSpacing: 0.02,
                         fontFeatures: const [FontFeature.tabularFigures()],
                         fontFamily: '-apple-system',
@@ -246,6 +250,7 @@ class _InteractiveDialRing extends StatefulWidget {
   final double sleepBedtime;
   final double sleepWakeup;
   final bool sleepEnabled;
+  final double? qiblaAngle;
   final ValueChanged<double>? onSleepBedtimeChanged;
   final ValueChanged<double>? onSleepWakeupChanged;
 
@@ -256,6 +261,7 @@ class _InteractiveDialRing extends StatefulWidget {
     required this.sleepBedtime,
     required this.sleepWakeup,
     required this.sleepEnabled,
+    this.qiblaAngle,
     this.onSleepBedtimeChanged,
     this.onSleepWakeupChanged,
   });
@@ -309,7 +315,6 @@ class _InteractiveDialRingState extends State<_InteractiveDialRing> {
     var time = (widget.times.dhuhr + angleDeg / 15.0) % 24.0;
     if (time < 0) time += 24.0;
 
-    // Arrondir au quart d'heure ou 5 minutes
     final roundedMinute = (((time - time.floor()) * 60) / 5).round() * 5;
     final roundedTime = (time.floor() + roundedMinute / 60.0) % 24.0;
 
@@ -341,6 +346,7 @@ class _InteractiveDialRingState extends State<_InteractiveDialRing> {
           sleepBedtime: widget.sleepBedtime,
           sleepWakeup: widget.sleepWakeup,
           sleepEnabled: widget.sleepEnabled,
+          qiblaAngle: widget.qiblaAngle,
         ),
       ),
     );
@@ -353,6 +359,7 @@ class _AppleFinalDialPainter extends CustomPainter {
   final double sleepBedtime;
   final double sleepWakeup;
   final bool sleepEnabled;
+  final double? qiblaAngle;
 
   _AppleFinalDialPainter({
     required this.times,
@@ -360,6 +367,7 @@ class _AppleFinalDialPainter extends CustomPainter {
     required this.sleepBedtime,
     required this.sleepWakeup,
     required this.sleepEnabled,
+    this.qiblaAngle,
   });
 
   @override
@@ -383,7 +391,58 @@ class _AppleFinalDialPainter extends CustomPainter {
       ..strokeWidth = 1.0 * scale;
     canvas.drawCircle(center, r, ringPaint);
 
-    // 2. Arc Diurne Fixe (Lever du Soleil -> Maghrib en Bleu Nuit #1E3A5F)
+    // 2. Indicateur de Qibla Dynamique (Triangle Émeraude entre le disque central et l'anneau)
+    if (qiblaAngle != null) {
+      final rQibla = 106.0 * scale;
+      final radQ = qiblaAngle! * math.pi / 180.0;
+
+      // Sommet du triangle (pointe vers l'extérieur dans la direction de la Qibla)
+      final tipR = rQibla + 9.0 * scale;
+      final baseR = rQibla - 6.5 * scale;
+      final halfBaseWidth = 6.0 * scale;
+
+      final tip = Offset(cx + tipR * math.sin(radQ), cy - tipR * math.cos(radQ));
+      
+      final perpX = math.cos(radQ);
+      final perpY = math.sin(radQ);
+
+      final baseCenter = Offset(cx + baseR * math.sin(radQ), cy - baseR * math.cos(radQ));
+      final baseL = Offset(baseCenter.dx - halfBaseWidth * perpX, baseCenter.dy - halfBaseWidth * perpY);
+      final baseR_ = Offset(baseCenter.dx + halfBaseWidth * perpX, baseCenter.dy + halfBaseWidth * perpY);
+
+      final qiblaPath = Path()
+        ..moveTo(tip.dx, tip.dy)
+        ..lineTo(baseL.dx, baseL.dy)
+        ..lineTo(baseR_.dx, baseR_.dy)
+        ..close();
+
+      // Halo émeraude
+      canvas.drawCircle(
+        baseCenter,
+        12.0 * scale,
+        Paint()..color = const Color(0x3310B981),
+      );
+
+      // Fond du triangle Émeraude
+      canvas.drawPath(
+        qiblaPath,
+        Paint()
+          ..color = MizwalaTheme.emerald
+          ..style = PaintingStyle.fill,
+      );
+
+      // Bordure dorée / vert clair
+      canvas.drawPath(
+        qiblaPath,
+        Paint()
+          ..color = const Color(0xFF6EE7B7)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.2 * scale
+          ..strokeJoin = StrokeJoin.round,
+      );
+    }
+
+    // 3. Arc Diurne Fixe (Lever du Soleil -> Maghrib en Bleu Nuit #1E3A5F)
     final aSunrise = MizwalaCalculator.angleFromTop(times.sunrise, times.dhuhr);
     final aMaghrib = MizwalaCalculator.angleFromTop(times.maghrib, times.dhuhr);
     final daySweepDeg = (aMaghrib - aSunrise + 360.0) % 360.0;
@@ -403,7 +462,7 @@ class _AppleFinalDialPainter extends CustomPainter {
       dayArcPaint,
     );
 
-    // 3. Arc de Sommeil Indigo (épaisseur 6.5px)
+    // 4. Arc de Sommeil Indigo (épaisseur 6.5px)
     if (sleepEnabled) {
       final aStart = MizwalaCalculator.angleFromTop(sleepBedtime, times.dhuhr);
       final aEnd = MizwalaCalculator.angleFromTop(sleepWakeup, times.dhuhr);
@@ -476,13 +535,11 @@ class _AppleFinalDialPainter extends CustomPainter {
       final e = pt(aEnd);
 
       for (final p in [s, e]) {
-        // Fond noir intérieur
         canvas.drawCircle(
           p,
           5.5 * scale,
           Paint()..color = MizwalaTheme.bg,
         );
-        // Bordure indigo
         canvas.drawCircle(
           p,
           5.5 * scale,
@@ -494,15 +551,13 @@ class _AppleFinalDialPainter extends CustomPainter {
       }
     }
 
-    // 4. Repères des 5 prières Teal (r=4.5px)
+    // 5. Repères des 5 prières Teal (r=4.5px)
     final values = times.asMap();
     for (final key in kPrayerKeys) {
       final a = MizwalaCalculator.angleFromTop(values[key]!, times.dhuhr);
       final p = pt(a);
 
-      // Fond noir
       canvas.drawCircle(p, 4.5 * scale, Paint()..color = MizwalaTheme.bg);
-      // Bordure Teal
       canvas.drawCircle(
         p,
         4.5 * scale,
@@ -513,13 +568,11 @@ class _AppleFinalDialPainter extends CustomPainter {
       );
     }
 
-    // 5. Dohr (Ambre au sommet 0°, r=4.5px)
+    // 6. Dohr (Ambre au sommet 0°, r=4.5px)
     final aDohr = MizwalaCalculator.angleFromTop(times.dhuhr, times.dhuhr);
     final pDohr = pt(aDohr);
 
-    // Fond noir
     canvas.drawCircle(pDohr, 4.5 * scale, Paint()..color = MizwalaTheme.bg);
-    // Bordure Ambre
     canvas.drawCircle(
       pDohr,
       4.5 * scale,
@@ -529,13 +582,12 @@ class _AppleFinalDialPainter extends CustomPainter {
         ..strokeWidth = 1.5 * scale,
     );
 
-    // 6. Curseur Soleil / Lune (r=12px, noyau=6.5px, halo)
+    // 7. Curseur Soleil / Lune (r=12px, noyau=6.5px, halo)
     final timeAngle = MizwalaCalculator.angleFromTop(currentHour, times.dhuhr);
     final isDay = currentHour >= times.sunrise && currentHour < times.maghrib;
     final sp = pt(timeAngle);
     final markerColor = isDay ? MizwalaTheme.amber : MizwalaTheme.moon;
 
-    // Halo subtil pour le soleil en journée
     if (isDay) {
       canvas.drawCircle(
         sp,
@@ -544,7 +596,6 @@ class _AppleFinalDialPainter extends CustomPainter {
       );
     }
 
-    // Anneau extérieur du curseur
     canvas.drawCircle(
       sp,
       12.0 * scale,
@@ -554,7 +605,6 @@ class _AppleFinalDialPainter extends CustomPainter {
         ..strokeWidth = 1.6 * scale,
     );
 
-    // Noyau plein central du curseur
     canvas.drawCircle(
       sp,
       6.5 * scale,
@@ -568,6 +618,7 @@ class _AppleFinalDialPainter extends CustomPainter {
         oldDelegate.times.dhuhr != times.dhuhr ||
         oldDelegate.sleepBedtime != sleepBedtime ||
         oldDelegate.sleepWakeup != sleepWakeup ||
-        oldDelegate.sleepEnabled != sleepEnabled;
+        oldDelegate.sleepEnabled != sleepEnabled ||
+        oldDelegate.qiblaAngle != qiblaAngle;
   }
 }

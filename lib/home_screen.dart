@@ -8,6 +8,7 @@ import 'mizwala_dial.dart';
 import 'settings_screen.dart';
 import 'notification_service.dart';
 import 'weather_service.dart';
+import 'qibla_service.dart';
 
 const MethodChannel _widgetChannel = MethodChannel('com.mizwala.mizwala/widget');
 
@@ -33,6 +34,8 @@ class _MizwalaHomeScreenState extends State<MizwalaHomeScreen> {
   Timer? _timer;
   Timer? _weatherTimer;
   Timer? _sleepSaveDebounce;
+  StreamSubscription<double?>? _qiblaSubscription;
+  double? _qiblaAngle;
   late PrayerTimes _times;
   WeatherData? _weatherData;
 
@@ -61,6 +64,15 @@ class _MizwalaHomeScreenState extends State<MizwalaHomeScreen> {
 
     _loadSleepPrefs();
     _loadWeather();
+    QiblaService.init();
+
+    _qiblaSubscription = QiblaService.qiblaScreenAngleStream.listen((angle) {
+      if (mounted && angle != null) {
+        setState(() {
+          _qiblaAngle = angle;
+        });
+      }
+    });
 
     _timer = Timer.periodic(const Duration(seconds: 1), (_) => _tick());
     _weatherTimer =
@@ -72,6 +84,7 @@ class _MizwalaHomeScreenState extends State<MizwalaHomeScreen> {
     _timer?.cancel();
     _weatherTimer?.cancel();
     _sleepSaveDebounce?.cancel();
+    _qiblaSubscription?.cancel();
     super.dispose();
   }
 
@@ -285,6 +298,7 @@ class _MizwalaHomeScreenState extends State<MizwalaHomeScreen> {
                         sleepBedtime: _sleepBedtimeDecimal,
                         sleepWakeup: _sleepWakeupDecimal,
                         sleepEnabled: _sleepEnabled,
+                        qiblaAngle: _qiblaAngle,
                         onSleepBedtimeChanged: (val) {
                           setState(() => _sleepBedtimeDecimal = val);
                           _saveSleepPrefsDebounced();
@@ -532,6 +546,12 @@ class _MizwalaHomeScreenState extends State<MizwalaHomeScreen> {
           '${MizwalaCalculator.format(_sleepBedtimeDecimal)} · $sleepDurationLabel ($sleepCountdown)',
           MizwalaTheme.indigo
         ),
+      (
+        'qibla',
+        'Qibla',
+        '${QiblaService.qiblaBearingFromNorth.round()}° Est',
+        MizwalaTheme.emerald
+      ),
     ];
 
     return SingleChildScrollView(

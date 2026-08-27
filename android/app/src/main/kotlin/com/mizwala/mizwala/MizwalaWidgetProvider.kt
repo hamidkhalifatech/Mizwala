@@ -340,6 +340,47 @@ class MizwalaWidgetProvider : AppWidgetProvider() {
         val dayOval = RectF(cx - r, cy - r, cx + r, cy + r)
         canvas.drawArc(dayOval, dayStartAngle, daySweep, false, dayArcPaint)
 
+        // 2b. Indicateur de Qibla (Triangle Émeraude #10B981)
+        val rQibla = 106f * scale
+        val qiblaAngle = 94.75 // Direction géodésique de La Mecque depuis Marrakech
+        val radQ = qiblaAngle * Math.PI / 180.0
+        val tipR = rQibla + 9f * scale
+        val baseR = rQibla - 6.5f * scale
+        val halfW = 6f * scale
+
+        val tipX = (cx + tipR * sin(radQ)).toFloat()
+        val tipY = (cy - tipR * cos(radQ)).toFloat()
+        val perpX = cos(radQ).toFloat()
+        val perpY = sin(radQ).toFloat()
+        val baseCx = (cx + baseR * sin(radQ)).toFloat()
+        val baseCy = (cy - baseR * cos(radQ)).toFloat()
+
+        val qiblaPath = Path().apply {
+            moveTo(tipX, tipY)
+            lineTo(baseCx - halfW * perpX, baseCy - halfW * perpY)
+            lineTo(baseCx + halfW * perpX, baseCy + halfW * perpY)
+            close()
+        }
+
+        val qiblaHaloPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.parseColor("#3310B981")
+            style = Paint.Style.FILL
+        }
+        canvas.drawCircle(baseCx, baseCy, 12f * scale, qiblaHaloPaint)
+
+        val qiblaFillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.parseColor("#10B981")
+            style = Paint.Style.FILL
+        }
+        canvas.drawPath(qiblaPath, qiblaFillPaint)
+
+        val qiblaStrokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.parseColor("#6EE7B7")
+            style = Paint.Style.STROKE
+            strokeWidth = 1.2f * scale
+        }
+        canvas.drawPath(qiblaPath, qiblaStrokePaint)
+
         // 3. Arc de Sommeil Indigo (épaisseur 6.5px)
         if (sleepEnabled) {
             val aStart = angleFromTop(sleepBedtime, times.dhuhr)
