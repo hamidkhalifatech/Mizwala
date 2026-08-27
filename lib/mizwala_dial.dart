@@ -67,13 +67,37 @@ class MizwalaDial extends StatelessWidget {
         ? 'H:${weatherData!.maxTemp.round()}°  L:${weatherData!.minTemp.round()}°'
         : 'H:--°  L:--°';
 
+    // Calcul du chrono / compte à rebours avant le sommeil
+    String sleepCountdownBadge = '';
+    if (sleepEnabled) {
+      final bool isSleeping = (sleepBedtime <= sleepWakeup)
+          ? (currentHourDecimal >= sleepBedtime && currentHourDecimal < sleepWakeup)
+          : (currentHourDecimal >= sleepBedtime || currentHourDecimal < sleepWakeup);
+
+      if (isSleeping) {
+        final rem = (sleepWakeup - currentHourDecimal + 24.0) % 24.0;
+        final rH = rem.floor();
+        final rM = ((rem - rH) * 60).round();
+        sleepCountdownBadge = rM > 0
+            ? '🌙 Réveil dans ${rH}h${rM.toString().padLeft(2, '0')}'
+            : '🌙 Réveil dans ${rH}h';
+      } else {
+        final toSleep = (sleepBedtime - currentHourDecimal + 24.0) % 24.0;
+        final tH = toSleep.floor();
+        final tM = ((toSleep - tH) * 60).round();
+        sleepCountdownBadge = tM > 0
+            ? '🌙 Sommeil dans ${tH}h${tM.toString().padLeft(2, '0')}'
+            : '🌙 Sommeil dans ${tH}h';
+      }
+    }
+
     return SizedBox(
       width: size,
       height: size,
       child: Stack(
         alignment: Alignment.center,
         children: [
-          // 1. Anneau interactif (prières, sommeil, durée sommeil, soleil/lune)
+          // 1. Anneau interactif (prières, arc diurne bleu nuit, sommeil, durée sommeil, soleil/lune)
           _InteractiveDialRing(
             size: size,
             times: times,
@@ -85,7 +109,7 @@ class MizwalaDial extends StatelessWidget {
             onSleepWakeupChanged: onSleepWakeupChanged,
           ),
 
-          // 2. Disque central dynamique
+          // 2. Disque central dynamique avec Chrono bien visible sous Max/Min
           AnimatedContainer(
             duration: const Duration(milliseconds: 600),
             curve: Curves.easeInOut,
@@ -108,43 +132,68 @@ class MizwalaDial extends StatelessWidget {
               children: [
                 // Icône météo
                 _buildWeatherIcon(scale),
-                const SizedBox(height: 2),
+                const SizedBox(height: 1),
                 // Horloge numérique
                 Text(
                   clockStr,
                   style: TextStyle(
-                    fontSize: 38 * scale,
+                    fontSize: 36 * scale,
                     fontWeight: FontWeight.w600,
                     color: Colors.white,
-                    letterSpacing: -0.02 * (38 * scale),
+                    letterSpacing: -0.02 * (36 * scale),
                     height: 1.05,
                     fontFeatures: const [FontFeature.tabularFigures()],
                     fontFamily: '-apple-system',
                   ),
                 ),
-                const SizedBox(height: 3),
+                const SizedBox(height: 2),
                 // Température actuelle
                 Text(
                   tempStr,
                   style: TextStyle(
-                    fontSize: 16 * scale,
+                    fontSize: 15 * scale,
                     fontWeight: FontWeight.w600,
                     color: Colors.white.withOpacity(0.90),
                     fontFeatures: const [FontFeature.tabularFigures()],
                     fontFamily: '-apple-system',
                   ),
                 ),
-                // High / Low
+                // Températures Max / Min
                 Text(
                   hlStr,
                   style: TextStyle(
-                    fontSize: 11 * scale,
+                    fontSize: 10.5 * scale,
                     fontWeight: FontWeight.w500,
                     color: MizwalaTheme.label3,
                     fontFeatures: const [FontFeature.tabularFigures()],
                     fontFamily: '-apple-system',
                   ),
                 ),
+                // Chrono avant sommeil bien visible en bas de Max/Min
+                if (sleepCountdownBadge.isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Container(
+                    padding: EdgeInsets.symmetric(
+                        horizontal: 8 * scale, vertical: 2 * scale),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.35),
+                      borderRadius: BorderRadius.circular(100),
+                      border: Border.all(
+                          color: const Color(0x4D5E5CE6), width: 0.8),
+                    ),
+                    child: Text(
+                      sleepCountdownBadge,
+                      style: TextStyle(
+                        fontSize: 9.5 * scale,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFFC7D2FE), // Violet clair lisible
+                        letterSpacing: 0.02,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                        fontFamily: '-apple-system',
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -183,7 +232,7 @@ class MizwalaDial extends StatelessWidget {
 
     return Icon(
       iconData,
-      size: 26 * scale,
+      size: 24 * scale,
       color: iconColor,
     );
   }
@@ -354,7 +403,7 @@ class _AppleFinalDialPainter extends CustomPainter {
       dayArcPaint,
     );
 
-    // 3. Arc de Sommeil Indigo (épaisseur diminuée de 50% : 6.5px au lieu de 13px)
+    // 3. Arc de Sommeil Indigo (épaisseur 6.5px)
     if (sleepEnabled) {
       final aStart = MizwalaCalculator.angleFromTop(sleepBedtime, times.dhuhr);
       final aEnd = MizwalaCalculator.angleFromTop(sleepWakeup, times.dhuhr);
@@ -362,7 +411,7 @@ class _AppleFinalDialPainter extends CustomPainter {
       final sleepArcPaint = Paint()
         ..color = MizwalaTheme.indigo
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 6.5 * scale // Diminué de 50%
+        ..strokeWidth = 6.5 * scale
         ..strokeCap = StrokeCap.round;
 
       final startRad = (aStart - 90.0) * math.pi / 180.0;
@@ -376,43 +425,24 @@ class _AppleFinalDialPainter extends CustomPainter {
         sleepArcPaint,
       );
 
-      // Calcul de la durée de sommeil (heures et minutes)
+      // Durée de sommeil (heures et minutes)
       final sleepDurationDec = (sleepWakeup - sleepBedtime + 24.0) % 24.0;
       final sleepHours = sleepDurationDec.floor();
       final sleepMins = ((sleepDurationDec - sleepHours) * 60).round();
-      final durationText = sleepMins > 0 ? '${sleepHours}h${sleepMins.toString().padLeft(2, '0')}' : '${sleepHours}h';
+      final durationText = sleepMins > 0
+          ? '${sleepHours}h${sleepMins.toString().padLeft(2, '0')}'
+          : '${sleepHours}h';
 
-      // Calcul du compte à rebours / chrono avant le coucher
-      final bool isSleeping = (sleepBedtime <= sleepWakeup)
-          ? (currentHour >= sleepBedtime && currentHour < sleepWakeup)
-          : (currentHour >= sleepBedtime || currentHour < sleepWakeup);
-
-      String countdownText;
-      if (isSleeping) {
-        final remainingSleep = (sleepWakeup - currentHour + 24.0) % 24.0;
-        final remH = remainingSleep.floor();
-        final remM = ((remainingSleep - remH) * 60).round();
-        countdownText = remM > 0 ? 'réveil dans ${remH}h${remM.toString().padLeft(2, '0')}' : 'réveil dans ${remH}h';
-      } else {
-        final timeToSleep = (sleepBedtime - currentHour + 24.0) % 24.0;
-        final toH = timeToSleep.floor();
-        final toM = ((timeToSleep - toH) * 60).round();
-        countdownText = toM > 0 ? 'dans ${toH}h${toM.toString().padLeft(2, '0')}' : 'dans ${toH}h';
-      }
-
-      final badgeFullText = '$durationText · $countdownText';
-
-      // Affichage au milieu de l'arc de sommeil
+      // Affichage de la durée sur l'arc de sommeil
       final aMid = (aStart + (sweepDeg / 2.0)) % 360.0;
       final badgePos = pt(aMid, -18.0 * scale);
 
-      // Pastille de fond pour la durée + chrono
       final badgePainter = TextPainter(
         text: TextSpan(
-          text: badgeFullText,
+          text: durationText,
           style: TextStyle(
             color: Colors.white,
-            fontSize: 9.0 * scale,
+            fontSize: 9.5 * scale,
             fontWeight: FontWeight.w700,
             letterSpacing: 0.02,
             fontFamily: '-apple-system',
@@ -433,7 +463,7 @@ class _AppleFinalDialPainter extends CustomPainter {
 
       canvas.drawRRect(
         pillRect,
-        Paint()..color = MizwalaTheme.indigo.withOpacity(0.92),
+        Paint()..color = MizwalaTheme.indigo.withOpacity(0.90),
       );
 
       badgePainter.paint(
@@ -441,7 +471,7 @@ class _AppleFinalDialPainter extends CustomPainter {
         badgePos - Offset(badgePainter.width / 2, badgePainter.height / 2),
       );
 
-      // Poignées de Sommeil (proportionnelles : r=5.5px au lieu de 9px)
+      // Poignées de Sommeil (r=5.5px)
       final s = pt(aStart);
       final e = pt(aEnd);
 
@@ -464,7 +494,7 @@ class _AppleFinalDialPainter extends CustomPainter {
       }
     }
 
-    // 3. Repères des 5 prières Teal (diminués de 50% : r=4.5px au lieu de 9px)
+    // 4. Repères des 5 prières Teal (r=4.5px)
     final values = times.asMap();
     for (final key in kPrayerKeys) {
       final a = MizwalaCalculator.angleFromTop(values[key]!, times.dhuhr);
@@ -479,11 +509,11 @@ class _AppleFinalDialPainter extends CustomPainter {
         Paint()
           ..color = MizwalaTheme.teal
           ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.5 * scale, // Réduit proportionnellement
+          ..strokeWidth = 1.5 * scale,
       );
     }
 
-    // 4. Dohr (Ambre au sommet 0° diminué de 50% : r=4.5px)
+    // 5. Dohr (Ambre au sommet 0°, r=4.5px)
     final aDohr = MizwalaCalculator.angleFromTop(times.dhuhr, times.dhuhr);
     final pDohr = pt(aDohr);
 
@@ -499,7 +529,7 @@ class _AppleFinalDialPainter extends CustomPainter {
         ..strokeWidth = 1.5 * scale,
     );
 
-    // 5. Curseur Soleil / Lune (agrandi de 30% : r=12px au lieu de 9px, noyau=6.5px au lieu de 5px)
+    // 6. Curseur Soleil / Lune (r=12px, noyau=6.5px, halo)
     final timeAngle = MizwalaCalculator.angleFromTop(currentHour, times.dhuhr);
     final isDay = currentHour >= times.sunrise && currentHour < times.maghrib;
     final sp = pt(timeAngle);
@@ -514,7 +544,7 @@ class _AppleFinalDialPainter extends CustomPainter {
       );
     }
 
-    // Anneau extérieur du curseur (agrandi de 30%)
+    // Anneau extérieur du curseur
     canvas.drawCircle(
       sp,
       12.0 * scale,
@@ -524,7 +554,7 @@ class _AppleFinalDialPainter extends CustomPainter {
         ..strokeWidth = 1.6 * scale,
     );
 
-    // Noyau plein central du curseur (agrandi de 30%)
+    // Noyau plein central du curseur
     canvas.drawCircle(
       sp,
       6.5 * scale,

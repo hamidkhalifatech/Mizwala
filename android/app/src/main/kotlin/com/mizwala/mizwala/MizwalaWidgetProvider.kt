@@ -143,7 +143,7 @@ class MizwalaWidgetProvider : AppWidgetProvider() {
             return lerpColor(base, target, 0.75f)
         }
 
-        // Lecture ultra-sécurisée des SharedPreferences de Flutter (supporte Long, Int, Double, String)
+        // Lecture sécurisée des préférences Flutter
         fun readPrefNumber(context: Context, keySuffix: String, defaultVal: Double): Double {
             val prefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
             val fullKey = "flutter.$keySuffix"
@@ -276,7 +276,7 @@ class MizwalaWidgetProvider : AppWidgetProvider() {
         val currentHourDec = hour + minute / 60.0 + second / 3600.0
         val times = computePrayerTimes(year, month, day)
 
-        // Récupération sécurisée des réglages utilisateur Flutter
+        // Récupération des réglages utilisateur Flutter
         val sleepEnabled = readPrefBoolean(context, "sleep_enabled", true)
         val bH = readPrefNumber(context, "sleep_bedtime_hour", 23.0).toInt()
         val bM = readPrefNumber(context, "sleep_bedtime_minute", 0.0).toInt()
@@ -340,7 +340,7 @@ class MizwalaWidgetProvider : AppWidgetProvider() {
         val dayOval = RectF(cx - r, cy - r, cx + r, cy + r)
         canvas.drawArc(dayOval, dayStartAngle, daySweep, false, dayArcPaint)
 
-        // 3. Arc de Sommeil Indigo (épaisseur diminuée de 50% : 6.5px)
+        // 3. Arc de Sommeil Indigo (épaisseur 6.5px)
         if (sleepEnabled) {
             val aStart = angleFromTop(sleepBedtime, times.dhuhr)
             val aEnd = angleFromTop(sleepWakeup, times.dhuhr)
@@ -350,13 +350,13 @@ class MizwalaWidgetProvider : AppWidgetProvider() {
             val sleepArcPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = Color.parseColor("#5E5CE6")
                 style = Paint.Style.STROKE
-                strokeWidth = 6.5f * scale // 50% plus fin
+                strokeWidth = 6.5f * scale
                 strokeCap = Paint.Cap.ROUND
             }
             val oval = RectF(cx - r, cy - r, cx + r, cy + r)
             canvas.drawArc(oval, startAngle, sweep, false, sleepArcPaint)
 
-            // Poignées de Sommeil (proportionnelles : r=5.5px)
+            // Poignées de Sommeil (r=5.5px)
             val sPt = getPt(aStart)
             val ePt = getPt(aEnd)
             for (p in listOf(sPt, ePt)) {
@@ -370,45 +370,25 @@ class MizwalaWidgetProvider : AppWidgetProvider() {
                 canvas.drawCircle(p.x, p.y, 5.5f * scale, strokeP)
             }
 
-            // Durée de sommeil badge + Chrono avant le coucher
+            // Durée de sommeil badge sur l'arc
             val durDec = (sleepWakeup - sleepBedtime + 24.0) % 24.0
             val durH = durDec.toInt()
             val durM = ((durDec - durH) * 60.0).roundToInt()
             val durStr = if (durM > 0) "${durH}h${durM.toString().padStart(2, '0')}" else "${durH}h"
-
-            val isSleeping = if (sleepBedtime <= sleepWakeup) {
-                currentHourDec >= sleepBedtime && currentHourDec < sleepWakeup
-            } else {
-                currentHourDec >= sleepBedtime || currentHourDec < sleepWakeup
-            }
-
-            val countdownStr = if (isSleeping) {
-                val rem = (sleepWakeup - currentHourDec + 24.0) % 24.0
-                val rH = rem.toInt()
-                val rM = ((rem - rH) * 60.0).roundToInt()
-                if (rM > 0) "réveil dans ${rH}h${rM.toString().padStart(2, '0')}" else "réveil dans ${rH}h"
-            } else {
-                val toSleep = (sleepBedtime - currentHourDec + 24.0) % 24.0
-                val tH = toSleep.toInt()
-                val tM = ((toSleep - tH) * 60.0).roundToInt()
-                if (tM > 0) "dans ${tH}h${tM.toString().padStart(2, '0')}" else "dans ${tH}h"
-            }
-
-            val badgeFullText = "$durStr · $countdownStr"
 
             val aMid = (aStart + sweep / 2.0) % 360.0
             val badgePt = getPt(aMid, r - 18f * scale)
 
             val badgeTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = Color.WHITE
-                textSize = 9.0f * scale
+                textSize = 9.5f * scale
                 typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
                 textAlign = Paint.Align.CENTER
             }
             val textBounds = Rect()
-            badgeTextPaint.getTextBounds(badgeFullText, 0, badgeFullText.length, textBounds)
+            badgeTextPaint.getTextBounds(durStr, 0, durStr.length, textBounds)
 
-            val pillW = textBounds.width() + 14f * scale
+            val pillW = textBounds.width() + 12f * scale
             val pillH = textBounds.height() + 6f * scale
             val pillRect = RectF(badgePt.x - pillW / 2f, badgePt.y - pillH / 2f, badgePt.x + pillW / 2f, badgePt.y + pillH / 2f)
 
@@ -417,10 +397,10 @@ class MizwalaWidgetProvider : AppWidgetProvider() {
                 style = Paint.Style.FILL
             }
             canvas.drawRoundRect(pillRect, 100f, 100f, badgeBgPaint)
-            canvas.drawText(badgeFullText, badgePt.x, badgePt.y + textBounds.height() / 2f - 1f, badgeTextPaint)
+            canvas.drawText(durStr, badgePt.x, badgePt.y + textBounds.height() / 2f - 1f, badgeTextPaint)
         }
 
-        // 3. Repères des 5 prières Teal (diminués de 50% : r=4.5px)
+        // 4. Repères des 5 prières Teal (r=4.5px)
         val prayerList = listOf(times.fajr, times.sunrise, times.asr, times.maghrib, times.isha)
         val tealPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.parseColor("#30B0C7")
@@ -438,7 +418,7 @@ class MizwalaWidgetProvider : AppWidgetProvider() {
             canvas.drawCircle(pt.x, pt.y, 4.5f * scale, tealPaint)
         }
 
-        // 4. Dohr (Ambre au sommet diminué de 50% : r=4.5px)
+        // 5. Dohr (Ambre au sommet 0°, r=4.5px)
         val aDohr = angleFromTop(times.dhuhr, times.dhuhr)
         val ptDohr = getPt(aDohr)
         val amberPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -449,7 +429,7 @@ class MizwalaWidgetProvider : AppWidgetProvider() {
         canvas.drawCircle(ptDohr.x, ptDohr.y, 4.5f * scale, pFillPaint)
         canvas.drawCircle(ptDohr.x, ptDohr.y, 4.5f * scale, amberPaint)
 
-        // 5. Curseur Soleil / Lune (agrandi de 30% : r=12px, noyau=6.5px, halo lumineux)
+        // 6. Curseur Soleil / Lune (r=12px, noyau=6.5px, halo)
         val aNow = angleFromTop(currentHourDec, times.dhuhr)
         val ptNow = getPt(aNow)
         val isDay = currentHourDec >= times.sunrise && currentHourDec < times.maghrib
@@ -475,7 +455,7 @@ class MizwalaWidgetProvider : AppWidgetProvider() {
         canvas.drawCircle(ptNow.x, ptNow.y, 12f * scale, curRingPaint)
         canvas.drawCircle(ptNow.x, ptNow.y, 6.5f * scale, curCorePaint)
 
-        // 6. Disque Central Dynamique (Ciel temps réel)
+        // 7. Disque Central Dynamique (Ciel temps réel)
         val skyColor = getSkyColor(currentHourDec, times, condition)
         val discPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = skyColor
@@ -497,37 +477,85 @@ class MizwalaWidgetProvider : AppWidgetProvider() {
             else -> "🌙"
         }
         val wxPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            textSize = 20f * scale
+            textSize = 18f * scale
             textAlign = Paint.Align.CENTER
         }
-        canvas.drawText(wxSymbol, cx, cy - 28f * scale, wxPaint)
+        canvas.drawText(wxSymbol, cx, cy - 30f * scale, wxPaint)
 
         // Horloge numérique HH:mm
         val clockStr = String.format("%02d:%02d", hour, minute)
         val clockPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.WHITE
-            textSize = 34f * scale
+            textSize = 32f * scale
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
             textAlign = Paint.Align.CENTER
         }
-        canvas.drawText(clockStr, cx, cy + 8f * scale, clockPaint)
+        canvas.drawText(clockStr, cx, cy + 2f * scale, clockPaint)
 
         // Température actuelle
         val tempPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.parseColor("#E6FFFFFF")
-            textSize = 14f * scale
+            textSize = 13.5f * scale
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
             textAlign = Paint.Align.CENTER
         }
-        canvas.drawText("${currentTemp}°", cx, cy + 26f * scale, tempPaint)
+        canvas.drawText("${currentTemp}°", cx, cy + 18f * scale, tempPaint)
 
         // Min / Max
         val hlPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.parseColor("#80FFFFFF")
-            textSize = 9.5f * scale
+            textSize = 9.0f * scale
             textAlign = Paint.Align.CENTER
         }
-        canvas.drawText("H:${maxTemp}°  L:${minTemp}°", cx, cy + 40f * scale, hlPaint)
+        canvas.drawText("H:${maxTemp}°  L:${minTemp}°", cx, cy + 32f * scale, hlPaint)
+
+        // Chrono avant le coucher / réveil bien visible en bas de Max/Min
+        if (sleepEnabled) {
+            val isSleeping = if (sleepBedtime <= sleepWakeup) {
+                currentHourDec >= sleepBedtime && currentHourDec < sleepWakeup
+            } else {
+                currentHourDec >= sleepBedtime || currentHourDec < sleepWakeup
+            }
+
+            val countdownStr = if (isSleeping) {
+                val rem = (sleepWakeup - currentHourDec + 24.0) % 24.0
+                val rH = rem.toInt()
+                val rM = ((rem - rH) * 60.0).roundToInt()
+                if (rM > 0) "🌙 Réveil ${rH}h${rM.toString().padStart(2, '0')}" else "🌙 Réveil ${rH}h"
+            } else {
+                val toSleep = (sleepBedtime - currentHourDec + 24.0) % 24.0
+                val tH = toSleep.toInt()
+                val tM = ((toSleep - tH) * 60.0).roundToInt()
+                if (tM > 0) "🌙 Sommeil ${tH}h${tM.toString().padStart(2, '0')}" else "🌙 Sommeil ${tH}h"
+            }
+
+            val cdTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.parseColor("#C7D2FE")
+                textSize = 8.5f * scale
+                typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+                textAlign = Paint.Align.CENTER
+            }
+            val cdBounds = Rect()
+            cdTextPaint.getTextBounds(countdownStr, 0, countdownStr.length, cdBounds)
+
+            val cdPillW = cdBounds.width() + 10f * scale
+            val cdPillH = cdBounds.height() + 5f * scale
+            val cdPillY = cy + 47f * scale
+            val cdPillRect = RectF(cx - cdPillW / 2f, cdPillY - cdPillH / 2f, cx + cdPillW / 2f, cdPillY + cdPillH / 2f)
+
+            val cdBgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.parseColor("#59000000")
+                style = Paint.Style.FILL
+            }
+            val cdStrokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.parseColor("#4D5E5CE6")
+                style = Paint.Style.STROKE
+                strokeWidth = 0.8f * scale
+            }
+            canvas.drawRoundRect(cdPillRect, 100f, 100f, cdBgPaint)
+            canvas.drawRoundRect(cdPillRect, 100f, 100f, cdStrokePaint)
+            canvas.drawText(countdownStr, cx, cdPillY + cdBounds.height() / 2f - 1f, cdTextPaint)
+        }
 
         return bitmap
     }
