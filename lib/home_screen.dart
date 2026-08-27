@@ -1,12 +1,21 @@
 import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'prayer_times.dart';
 import 'mizwala_dial.dart';
 import 'settings_screen.dart';
 import 'notification_service.dart';
 import 'weather_service.dart';
+
+const MethodChannel _widgetChannel = MethodChannel('com.mizwala.mizwala/widget');
+
+Future<void> _notifyWidget() async {
+  try {
+    await _widgetChannel.invokeMethod('updateWidget');
+  } catch (_) {}
+}
 
 const List<String> kFrenchMonths = [
   'janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin',
@@ -82,14 +91,6 @@ class _MizwalaHomeScreenState extends State<MizwalaHomeScreen> {
       });
     }
   }
-
-const MethodChannel _widgetChannel = MethodChannel('com.mizwala.mizwala/widget');
-
-Future<void> _notifyWidget() async {
-  try {
-    await _widgetChannel.invokeMethod('updateWidget');
-  } catch (_) {}
-}
 
   void _saveSleepPrefsDebounced() {
     _sleepSaveDebounce?.cancel();
