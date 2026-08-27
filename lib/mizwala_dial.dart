@@ -334,7 +334,7 @@ class _AppleFinalDialPainter extends CustomPainter {
       ..strokeWidth = 1.0 * scale;
     canvas.drawCircle(center, r, ringPaint);
 
-    // 2. Arc de Sommeil Indigo (si activé)
+    // 2. Arc de Sommeil Indigo (épaisseur diminuée de 50% : 6.5px au lieu de 13px)
     if (sleepEnabled) {
       final aStart = MizwalaCalculator.angleFromTop(sleepBedtime, times.dhuhr);
       final aEnd = MizwalaCalculator.angleFromTop(sleepWakeup, times.dhuhr);
@@ -342,7 +342,7 @@ class _AppleFinalDialPainter extends CustomPainter {
       final sleepArcPaint = Paint()
         ..color = MizwalaTheme.indigo
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 13.0 * scale
+        ..strokeWidth = 6.5 * scale // Diminué de 50%
         ..strokeCap = StrokeCap.round;
 
       final startRad = (aStart - 90.0) * math.pi / 180.0;
@@ -364,7 +364,7 @@ class _AppleFinalDialPainter extends CustomPainter {
 
       // Affichage de la durée au milieu de l'arc de sommeil
       final aMid = (aStart + (sweepDeg / 2.0)) % 360.0;
-      final badgePos = pt(aMid, -20.0 * scale);
+      final badgePos = pt(aMid, -18.0 * scale);
 
       // Pastille de fond pour la durée
       final badgePainter = TextPainter(
@@ -372,7 +372,7 @@ class _AppleFinalDialPainter extends CustomPainter {
           text: durationText,
           style: TextStyle(
             color: Colors.white,
-            fontSize: 10.5 * scale,
+            fontSize: 9.5 * scale,
             fontWeight: FontWeight.w700,
             letterSpacing: 0.02,
             fontFamily: '-apple-system',
@@ -385,15 +385,15 @@ class _AppleFinalDialPainter extends CustomPainter {
       final pillRect = RRect.fromRectAndRadius(
         Rect.fromCenter(
           center: badgePos,
-          width: badgePainter.width + 12 * scale,
-          height: badgePainter.height + 6 * scale,
+          width: badgePainter.width + 10 * scale,
+          height: badgePainter.height + 5 * scale,
         ),
         Radius.circular(100 * scale),
       );
 
       canvas.drawRRect(
         pillRect,
-        Paint()..color = MizwalaTheme.indigo.withOpacity(0.85),
+        Paint()..color = MizwalaTheme.indigo.withOpacity(0.90),
       );
 
       badgePainter.paint(
@@ -401,7 +401,7 @@ class _AppleFinalDialPainter extends CustomPainter {
         badgePos - Offset(badgePainter.width / 2, badgePainter.height / 2),
       );
 
-      // Poignées de Sommeil
+      // Poignées de Sommeil (proportionnelles : r=5.5px au lieu de 9px)
       final s = pt(aStart);
       final e = pt(aEnd);
 
@@ -409,76 +409,85 @@ class _AppleFinalDialPainter extends CustomPainter {
         // Fond noir intérieur
         canvas.drawCircle(
           p,
-          9.0 * scale,
+          5.5 * scale,
           Paint()..color = MizwalaTheme.bg,
         );
         // Bordure indigo
         canvas.drawCircle(
           p,
-          9.0 * scale,
+          5.5 * scale,
           Paint()
             ..color = MizwalaTheme.indigo
             ..style = PaintingStyle.stroke
-            ..strokeWidth = 2.4 * scale,
+            ..strokeWidth = 1.8 * scale,
         );
       }
     }
 
-    // 3. Repères des 5 prières Teal (Fajr, Chourouk, Asr, Maghrib, Icha)
+    // 3. Repères des 5 prières Teal (diminués de 50% : r=4.5px au lieu de 9px)
     final values = times.asMap();
     for (final key in kPrayerKeys) {
       final a = MizwalaCalculator.angleFromTop(values[key]!, times.dhuhr);
       final p = pt(a);
 
       // Fond noir
-      canvas.drawCircle(p, 9.0 * scale, Paint()..color = MizwalaTheme.bg);
+      canvas.drawCircle(p, 4.5 * scale, Paint()..color = MizwalaTheme.bg);
       // Bordure Teal
       canvas.drawCircle(
         p,
-        9.0 * scale,
+        4.5 * scale,
         Paint()
           ..color = MizwalaTheme.teal
           ..style = PaintingStyle.stroke
-          ..strokeWidth = 2.4 * scale,
+          ..strokeWidth = 1.5 * scale, // Réduit proportionnellement
       );
     }
 
-    // 4. Dohr (Ambre au sommet 0°)
+    // 4. Dohr (Ambre au sommet 0° diminué de 50% : r=4.5px)
     final aDohr = MizwalaCalculator.angleFromTop(times.dhuhr, times.dhuhr);
     final pDohr = pt(aDohr);
 
     // Fond noir
-    canvas.drawCircle(pDohr, 9.0 * scale, Paint()..color = MizwalaTheme.bg);
+    canvas.drawCircle(pDohr, 4.5 * scale, Paint()..color = MizwalaTheme.bg);
     // Bordure Ambre
     canvas.drawCircle(
       pDohr,
-      9.0 * scale,
+      4.5 * scale,
       Paint()
         ..color = MizwalaTheme.amber
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.4 * scale,
+        ..strokeWidth = 1.5 * scale,
     );
 
-    // 5. Curseur Soleil / Lune (parcourt l'anneau en temps réel)
+    // 5. Curseur Soleil / Lune (agrandi de 30% : r=12px au lieu de 9px, noyau=6.5px au lieu de 5px)
     final timeAngle = MizwalaCalculator.angleFromTop(currentHour, times.dhuhr);
     final isDay = currentHour >= times.sunrise && currentHour < times.maghrib;
     final sp = pt(timeAngle);
     final markerColor = isDay ? MizwalaTheme.amber : MizwalaTheme.moon;
 
-    // Anneau extérieur du curseur
+    // Halo subtil pour le soleil en journée
+    if (isDay) {
+      canvas.drawCircle(
+        sp,
+        16.0 * scale,
+        Paint()..color = MizwalaTheme.amber.withOpacity(0.20),
+      );
+    }
+
+    // Anneau extérieur du curseur (agrandi de 30%)
     canvas.drawCircle(
       sp,
-      9.0 * scale,
+      12.0 * scale,
       Paint()
         ..color = markerColor
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.2 * scale,
+        ..strokeWidth = 1.6 * scale,
     );
 
-    // Noyau plein central du curseur
+    // Noyau plein central du curseur (agrandi de 30%)
     canvas.drawCircle(
       sp,
-      5.0 * scale,
+      6.5 * scale,
       Paint()..color = markerColor,
     );
   }

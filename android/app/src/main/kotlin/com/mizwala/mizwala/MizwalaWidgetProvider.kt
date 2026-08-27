@@ -175,7 +175,6 @@ class MizwalaWidgetProvider : AppWidgetProvider() {
                 context, 0, intent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
-            // Prochaine mise à jour à la minute suivante
             val nextMinute = (System.currentTimeMillis() / 60000 + 1) * 60000
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC, nextMinute, pendingIntent)
@@ -286,11 +285,11 @@ class MizwalaWidgetProvider : AppWidgetProvider() {
         val ringPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.parseColor("#1AFFFFFF")
             style = Paint.Style.STROKE
-            strokeWidth = 1.2f * scale
+            strokeWidth = 1.0f * scale
         }
         canvas.drawCircle(cx, cy, r, ringPaint)
 
-        // 2. Arc de Sommeil Indigo
+        // 2. Arc de Sommeil Indigo (diminué de 50% : 6.5px au lieu de 13px)
         if (sleepEnabled) {
             val aStart = angleFromTop(sleepBedtime, times.dhuhr)
             val aEnd = angleFromTop(sleepWakeup, times.dhuhr)
@@ -300,13 +299,13 @@ class MizwalaWidgetProvider : AppWidgetProvider() {
             val sleepArcPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = Color.parseColor("#5E5CE6")
                 style = Paint.Style.STROKE
-                strokeWidth = 13f * scale
+                strokeWidth = 6.5f * scale // Épaisseur diminuée de moitié
                 strokeCap = Paint.Cap.ROUND
             }
             val oval = RectF(cx - r, cy - r, cx + r, cy + r)
             canvas.drawArc(oval, startAngle, sweep, false, sleepArcPaint)
 
-            // Poignées de Sommeil
+            // Poignées de Sommeil (proportionnelles : r=5.5px)
             val sPt = getPt(aStart)
             val ePt = getPt(aEnd)
             for (p in listOf(sPt, ePt)) {
@@ -314,10 +313,10 @@ class MizwalaWidgetProvider : AppWidgetProvider() {
                 val strokeP = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                     color = Color.parseColor("#5E5CE6")
                     style = Paint.Style.STROKE
-                    strokeWidth = 2.4f * scale
+                    strokeWidth = 1.8f * scale
                 }
-                canvas.drawCircle(p.x, p.y, 9f * scale, fillP)
-                canvas.drawCircle(p.x, p.y, 9f * scale, strokeP)
+                canvas.drawCircle(p.x, p.y, 5.5f * scale, fillP)
+                canvas.drawCircle(p.x, p.y, 5.5f * scale, strokeP)
             }
 
             // Durée de sommeil badge
@@ -327,35 +326,35 @@ class MizwalaWidgetProvider : AppWidgetProvider() {
             val durStr = if (durM > 0) "${durH}h${durM.toString().padStart(2, '0')}" else "${durH}h"
 
             val aMid = (aStart + sweep / 2.0) % 360.0
-            val badgePt = getPt(aMid, r - 20f * scale)
+            val badgePt = getPt(aMid, r - 18f * scale)
 
             val badgeTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = Color.WHITE
-                textSize = 10f * scale
+                textSize = 9.5f * scale
                 typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
                 textAlign = Paint.Align.CENTER
             }
             val textBounds = Rect()
             badgeTextPaint.getTextBounds(durStr, 0, durStr.length, textBounds)
 
-            val pillW = textBounds.width() + 14f * scale
-            val pillH = textBounds.height() + 8f * scale
+            val pillW = textBounds.width() + 12f * scale
+            val pillH = textBounds.height() + 6f * scale
             val pillRect = RectF(badgePt.x - pillW / 2f, badgePt.y - pillH / 2f, badgePt.x + pillW / 2f, badgePt.y + pillH / 2f)
 
             val badgeBgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = Color.parseColor("#D95E5CE6")
+                color = Color.parseColor("#E65E5CE6")
                 style = Paint.Style.FILL
             }
             canvas.drawRoundRect(pillRect, 100f, 100f, badgeBgPaint)
             canvas.drawText(durStr, badgePt.x, badgePt.y + textBounds.height() / 2f - 1f, badgeTextPaint)
         }
 
-        // 3. Repères des 5 prières Teal (#30B0C7)
+        // 3. Repères des 5 prières Teal (diminués de 50% : r=4.5px au lieu de 9px)
         val prayerList = listOf(times.fajr, times.sunrise, times.asr, times.maghrib, times.isha)
         val tealPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.parseColor("#30B0C7")
             style = Paint.Style.STROKE
-            strokeWidth = 2.4f * scale
+            strokeWidth = 1.5f * scale
         }
         val pFillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.parseColor("#0B0B0E")
@@ -364,38 +363,46 @@ class MizwalaWidgetProvider : AppWidgetProvider() {
         for (pTime in prayerList) {
             val a = angleFromTop(pTime, times.dhuhr)
             val pt = getPt(a)
-            canvas.drawCircle(pt.x, pt.y, 9f * scale, pFillPaint)
-            canvas.drawCircle(pt.x, pt.y, 9f * scale, tealPaint)
+            canvas.drawCircle(pt.x, pt.y, 4.5f * scale, pFillPaint)
+            canvas.drawCircle(pt.x, pt.y, 4.5f * scale, tealPaint)
         }
 
-        // 4. Dohr (Ambre au sommet)
+        // 4. Dohr (Ambre au sommet diminué de 50% : r=4.5px)
         val aDohr = angleFromTop(times.dhuhr, times.dhuhr)
         val ptDohr = getPt(aDohr)
         val amberPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.parseColor("#FF9F0A")
             style = Paint.Style.STROKE
-            strokeWidth = 2.4f * scale
+            strokeWidth = 1.5f * scale
         }
-        canvas.drawCircle(ptDohr.x, ptDohr.y, 9f * scale, pFillPaint)
-        canvas.drawCircle(ptDohr.x, ptDohr.y, 9f * scale, amberPaint)
+        canvas.drawCircle(ptDohr.x, ptDohr.y, 4.5f * scale, pFillPaint)
+        canvas.drawCircle(ptDohr.x, ptDohr.y, 4.5f * scale, amberPaint)
 
-        // 5. Curseur Soleil / Lune en direct sur l'anneau
+        // 5. Curseur Soleil / Lune (agrandi de 30% : r=12px au lieu de 9px, noyau=6.5px)
         val aNow = angleFromTop(currentHourDec, times.dhuhr)
         val ptNow = getPt(aNow)
         val isDay = currentHourDec >= times.sunrise && currentHourDec < times.maghrib
         val curColor = if (isDay) Color.parseColor("#FF9F0A") else Color.parseColor("#C7D2E0")
 
+        if (isDay) {
+            val haloPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.parseColor("#33FF9F0A")
+                style = Paint.Style.FILL
+            }
+            canvas.drawCircle(ptNow.x, ptNow.y, 16f * scale, haloPaint)
+        }
+
         val curRingPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = curColor
             style = Paint.Style.STROKE
-            strokeWidth = 1.4f * scale
+            strokeWidth = 1.6f * scale
         }
         val curCorePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = curColor
             style = Paint.Style.FILL
         }
-        canvas.drawCircle(ptNow.x, ptNow.y, 9f * scale, curRingPaint)
-        canvas.drawCircle(ptNow.x, ptNow.y, 5f * scale, curCorePaint)
+        canvas.drawCircle(ptNow.x, ptNow.y, 12f * scale, curRingPaint)
+        canvas.drawCircle(ptNow.x, ptNow.y, 6.5f * scale, curCorePaint)
 
         // 6. Disque Central Dynamique (Ciel temps réel)
         val skyColor = getSkyColor(currentHourDec, times, condition)
