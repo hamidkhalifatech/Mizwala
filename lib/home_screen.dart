@@ -501,6 +501,23 @@ class _MizwalaHomeScreenState extends State<MizwalaHomeScreen> {
     final sleepM = ((sleepDurationDec - sleepH) * 60).round();
     final sleepDurationLabel = sleepM > 0 ? '${sleepH}h$sleepM' : '${sleepH}h';
 
+    final bool isSleeping = (_sleepBedtimeDecimal <= _sleepWakeupDecimal)
+        ? (_currentHourDecimal >= _sleepBedtimeDecimal && _currentHourDecimal < _sleepWakeupDecimal)
+        : (_currentHourDecimal >= _sleepBedtimeDecimal || _currentHourDecimal < _sleepWakeupDecimal);
+
+    String sleepCountdown;
+    if (isSleeping) {
+      final rem = (_sleepWakeupDecimal - _currentHourDecimal + 24.0) % 24.0;
+      final rH = rem.floor();
+      final rM = ((rem - rH) * 60).round();
+      sleepCountdown = rM > 0 ? 'réveil dans ${rH}h$rM' : 'réveil dans ${rH}h';
+    } else {
+      final toSleep = (_sleepBedtimeDecimal - _currentHourDecimal + 24.0) % 24.0;
+      final tH = toSleep.floor();
+      final tM = ((toSleep - tH) * 60).round();
+      sleepCountdown = tM > 0 ? 'dans ${tH}h$tM' : 'dans ${tH}h';
+    }
+
     final chips = [
       ('fajr', 'Fajr', MizwalaCalculator.format(_times.fajr), MizwalaTheme.teal),
       ('sunrise', 'Chourouk', MizwalaCalculator.format(_times.sunrise), MizwalaTheme.teal),
@@ -512,7 +529,7 @@ class _MizwalaHomeScreenState extends State<MizwalaHomeScreen> {
         (
           'sleep',
           'Sommeil',
-          '${MizwalaCalculator.format(_sleepBedtimeDecimal)} ($sleepDurationLabel)',
+          '${MizwalaCalculator.format(_sleepBedtimeDecimal)} · $sleepDurationLabel ($sleepCountdown)',
           MizwalaTheme.indigo
         ),
     ];

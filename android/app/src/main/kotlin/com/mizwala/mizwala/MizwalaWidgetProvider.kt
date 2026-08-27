@@ -370,25 +370,45 @@ class MizwalaWidgetProvider : AppWidgetProvider() {
                 canvas.drawCircle(p.x, p.y, 5.5f * scale, strokeP)
             }
 
-            // Durée de sommeil badge
+            // Durée de sommeil badge + Chrono avant le coucher
             val durDec = (sleepWakeup - sleepBedtime + 24.0) % 24.0
             val durH = durDec.toInt()
             val durM = ((durDec - durH) * 60.0).roundToInt()
             val durStr = if (durM > 0) "${durH}h${durM.toString().padStart(2, '0')}" else "${durH}h"
+
+            val isSleeping = if (sleepBedtime <= sleepWakeup) {
+                currentHourDec >= sleepBedtime && currentHourDec < sleepWakeup
+            } else {
+                currentHourDec >= sleepBedtime || currentHourDec < sleepWakeup
+            }
+
+            val countdownStr = if (isSleeping) {
+                val rem = (sleepWakeup - currentHourDec + 24.0) % 24.0
+                val rH = rem.toInt()
+                val rM = ((rem - rH) * 60.0).roundToInt()
+                if (rM > 0) "réveil dans ${rH}h${rM.toString().padStart(2, '0')}" else "réveil dans ${rH}h"
+            } else {
+                val toSleep = (sleepBedtime - currentHourDec + 24.0) % 24.0
+                val tH = toSleep.toInt()
+                val tM = ((toSleep - tH) * 60.0).roundToInt()
+                if (tM > 0) "dans ${tH}h${tM.toString().padStart(2, '0')}" else "dans ${tH}h"
+            }
+
+            val badgeFullText = "$durStr · $countdownStr"
 
             val aMid = (aStart + sweep / 2.0) % 360.0
             val badgePt = getPt(aMid, r - 18f * scale)
 
             val badgeTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = Color.WHITE
-                textSize = 9.5f * scale
+                textSize = 9.0f * scale
                 typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
                 textAlign = Paint.Align.CENTER
             }
             val textBounds = Rect()
-            badgeTextPaint.getTextBounds(durStr, 0, durStr.length, textBounds)
+            badgeTextPaint.getTextBounds(badgeFullText, 0, badgeFullText.length, textBounds)
 
-            val pillW = textBounds.width() + 12f * scale
+            val pillW = textBounds.width() + 14f * scale
             val pillH = textBounds.height() + 6f * scale
             val pillRect = RectF(badgePt.x - pillW / 2f, badgePt.y - pillH / 2f, badgePt.x + pillW / 2f, badgePt.y + pillH / 2f)
 
@@ -397,7 +417,7 @@ class MizwalaWidgetProvider : AppWidgetProvider() {
                 style = Paint.Style.FILL
             }
             canvas.drawRoundRect(pillRect, 100f, 100f, badgeBgPaint)
-            canvas.drawText(durStr, badgePt.x, badgePt.y + textBounds.height() / 2f - 1f, badgeTextPaint)
+            canvas.drawText(badgeFullText, badgePt.x, badgePt.y + textBounds.height() / 2f - 1f, badgeTextPaint)
         }
 
         // 3. Repères des 5 prières Teal (diminués de 50% : r=4.5px)

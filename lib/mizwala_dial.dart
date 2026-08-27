@@ -382,17 +382,37 @@ class _AppleFinalDialPainter extends CustomPainter {
       final sleepMins = ((sleepDurationDec - sleepHours) * 60).round();
       final durationText = sleepMins > 0 ? '${sleepHours}h${sleepMins.toString().padLeft(2, '0')}' : '${sleepHours}h';
 
-      // Affichage de la durée au milieu de l'arc de sommeil
+      // Calcul du compte à rebours / chrono avant le coucher
+      final bool isSleeping = (sleepBedtime <= sleepWakeup)
+          ? (currentHour >= sleepBedtime && currentHour < sleepWakeup)
+          : (currentHour >= sleepBedtime || currentHour < sleepWakeup);
+
+      String countdownText;
+      if (isSleeping) {
+        final remainingSleep = (sleepWakeup - currentHour + 24.0) % 24.0;
+        final remH = remainingSleep.floor();
+        final remM = ((remainingSleep - remH) * 60).round();
+        countdownText = remM > 0 ? 'réveil dans ${remH}h${remM.toString().padLeft(2, '0')}' : 'réveil dans ${remH}h';
+      } else {
+        final timeToSleep = (sleepBedtime - currentHour + 24.0) % 24.0;
+        final toH = timeToSleep.floor();
+        final toM = ((timeToSleep - toH) * 60).round();
+        countdownText = toM > 0 ? 'dans ${toH}h${toM.toString().padLeft(2, '0')}' : 'dans ${toH}h';
+      }
+
+      final badgeFullText = '$durationText · $countdownText';
+
+      // Affichage au milieu de l'arc de sommeil
       final aMid = (aStart + (sweepDeg / 2.0)) % 360.0;
       final badgePos = pt(aMid, -18.0 * scale);
 
-      // Pastille de fond pour la durée
+      // Pastille de fond pour la durée + chrono
       final badgePainter = TextPainter(
         text: TextSpan(
-          text: durationText,
+          text: badgeFullText,
           style: TextStyle(
             color: Colors.white,
-            fontSize: 9.5 * scale,
+            fontSize: 9.0 * scale,
             fontWeight: FontWeight.w700,
             letterSpacing: 0.02,
             fontFamily: '-apple-system',
@@ -405,7 +425,7 @@ class _AppleFinalDialPainter extends CustomPainter {
       final pillRect = RRect.fromRectAndRadius(
         Rect.fromCenter(
           center: badgePos,
-          width: badgePainter.width + 10 * scale,
+          width: badgePainter.width + 12 * scale,
           height: badgePainter.height + 5 * scale,
         ),
         Radius.circular(100 * scale),
@@ -413,7 +433,7 @@ class _AppleFinalDialPainter extends CustomPainter {
 
       canvas.drawRRect(
         pillRect,
-        Paint()..color = MizwalaTheme.indigo.withOpacity(0.90),
+        Paint()..color = MizwalaTheme.indigo.withOpacity(0.92),
       );
 
       badgePainter.paint(
