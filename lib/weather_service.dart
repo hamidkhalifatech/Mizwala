@@ -1,21 +1,26 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'prayer_times.dart';
 
 class WeatherData {
   final double currentTemp;
   final double maxTemp;
+  final double minTemp;
   final int weatherCode;
   final bool isDay;
+  final String conditionType; // 'clear' | 'clouds' | 'rain' | 'storm'
   final String iconSymbol;
   final String conditionLabel;
 
   const WeatherData({
     required this.currentTemp,
     required this.maxTemp,
+    required this.minTemp,
     required this.weatherCode,
     required this.isDay,
+    required this.conditionType,
     required this.iconSymbol,
     required this.conditionLabel,
   });
@@ -23,8 +28,10 @@ class WeatherData {
   Map<String, dynamic> toJson() => {
         'currentTemp': currentTemp,
         'maxTemp': maxTemp,
+        'minTemp': minTemp,
         'weatherCode': weatherCode,
         'isDay': isDay,
+        'conditionType': conditionType,
         'iconSymbol': iconSymbol,
         'conditionLabel': conditionLabel,
       };
@@ -33,8 +40,11 @@ class WeatherData {
     return WeatherData(
       currentTemp: (json['currentTemp'] as num).toDouble(),
       maxTemp: (json['maxTemp'] as num).toDouble(),
+      minTemp: (json['minTemp'] as num?)?.toDouble() ??
+          ((json['maxTemp'] as num).toDouble() - 8.0),
       weatherCode: json['weatherCode'] as int,
       isDay: json['isDay'] as bool,
+      conditionType: json['conditionType'] as String? ?? 'clear',
       iconSymbol: json['iconSymbol'] as String,
       conditionLabel: json['conditionLabel'] as String,
     );
@@ -72,7 +82,7 @@ class WeatherService {
         'https://api.open-meteo.com/v1/forecast?'
         'latitude=$lat&longitude=$lng&'
         'current=temperature_2m,weather_code,is_day&'
-        'daily=temperature_2m_max&'
+        'daily=temperature_2m_max,temperature_2m_min&'
         'timezone=Africa%2FCasablanca&'
         'forecast_days=1',
       );
@@ -84,12 +94,16 @@ class WeatherService {
         final current = data['current'];
         final daily = data['daily'];
 
-        final double currentTemp = (current['temperature_2m'] as num).toDouble();
-        final double maxTemp = (daily['temperature_2m_max'][0] as num).toDouble();
+        final double currentTemp =
+            (current['temperature_2m'] as num).toDouble();
+        final double maxTemp =
+            (daily['temperature_2m_max'][0] as num).toDouble();
+        final double minTemp =
+            (daily['temperature_2m_min'][0] as num).toDouble();
         final int weatherCode = current['weather_code'] as int;
         final bool isDay = (current['is_day'] as int) == 1;
 
-        final (symbol, label) = _resolveSymbolAndLabel(
+        final (symbol, label, condType) = _resolveSymbolAndLabel(
           weatherCode: weatherCode,
           isDay: isDay,
           currentHour: currentHourDecimal,
@@ -100,8 +114,10 @@ class WeatherService {
         final weather = WeatherData(
           currentTemp: currentTemp,
           maxTemp: maxTemp,
+          minTemp: minTemp,
           weatherCode: weatherCode,
           isDay: isDay,
+          conditionType: condType,
           iconSymbol: symbol,
           conditionLabel: label,
         );
@@ -120,7 +136,7 @@ class WeatherService {
     return await _loadFromLocalCache();
   }
 
-  static (String, String) _resolveSymbolAndLabel({
+  static (String, String, String) _resolveSymbolAndLabel({
     required int weatherCode,
     required bool isDay,
     double? currentHour,
@@ -129,46 +145,53 @@ class WeatherService {
   }) {
     // Vérifier si le soleil est en train de se lever ou se coucher (+/- 25 min)
     if (currentHour != null && sunrise != null && sunset != null) {
-      if ((currentHour - sunrise).abs() < 0.45 || (currentHour - sunset).abs() < 0.45) {
-        return ('🌅', 'Crépuscule');
+      if ((currentHour - sunrise).abs() < 0.45 ||
+          (currentHour - sunset).abs() < 0.45) {
+        return ('🌅', 'Crépuscule', 'clear');
       }
     }
 
     // Codes WMO météo
     switch (weatherCode) {
       case 0:
-        return isDay ? ('☀️', 'Ensoleillé') : ('🌙', 'Nuit claire');
+        return isDay
+            ? ('☀️', 'Ensoleillé', 'clear')
+            : ('🌙', 'Nuit claire', 'clear');
       case 1:
       case 2:
-        return isDay ? ('⛅', 'Éclaircies') : ('☁️🌙', 'Nuit nuageuse');
+        return isDay
+            ? ('⛅', 'Éclaircies', 'clouds')
+            : ('☁️🌙', 'Nuit nuageuse', 'clouds');
       case 3:
-        return ('☁️', 'Couvert');
+        return ('☁️', 'Couvert', 'clouds');
       case 45:
       case 48:
-        return ('🌫️', 'Brume');
+        return ('🌫️', 'Brume', 'clouds');
       case 51:
       case 53:
       case 55:
-        return ('🌦️', 'Bruine');
+        return ('🌦️', 'Bruine', 'rain');
       case 61:
       case 63:
       case 65:
       case 80:
       case 81:
       case 82:
-        return ('🌧️', 'Pluie');
+        return ('🌧️', 'Pluie', 'rain');
       case 71:
       case 73:
       case 75:
       case 85:
       case 86:
-        return ('❄️', 'Neige');
+        return ('❄️', 'Neige', 'clouds');
       case 95:
       case 96:
       case 99:
-        return ('⛈️', 'Orage');
+        return ('⛈️', 'Orage', 'storm');
       default:
-        return isDay ? ('☀️', 'Clair') : ('🌙', 'Clair');
+        return isDay
+            ? ('☀️', 'Clair', 'clear')
+            : ('🌙', 'Clair', 'clear');
     }
   }
 
@@ -192,5 +215,39 @@ class WeatherService {
       }
     } catch (_) {}
     return null;
+  }
+
+  /// Calcul dynamique de la couleur du ciel (Dégradé Nuit -> Aube -> Jour -> Coucher -> Nuit + Condition)
+  static Color computeSkyColor(double t, PrayerTimes times, String condition) {
+    const night = Color(0xFF0E1116); // [14, 17, 22]
+    const day = Color(0xFF3D8AC7);   // [61, 138, 199]
+    const sunset = Color(0xFFE8823A);// [232, 130, 58]
+
+    Color baseColor;
+
+    if (t >= times.isha || t < times.fajr) {
+      baseColor = night;
+    } else if (t < times.sunrise) {
+      final double f = ((t - times.fajr) / (times.sunrise - times.fajr)).clamp(0.0, 1.0);
+      baseColor = Color.lerp(night, day, f)!;
+    } else {
+      final double preSunset = times.maghrib - 1.0;
+      if (t < preSunset) {
+        baseColor = day;
+      } else if (t < times.maghrib) {
+        final double f = ((t - preSunset) / (times.maghrib - preSunset)).clamp(0.0, 1.0);
+        baseColor = Color.lerp(day, sunset, f)!;
+      } else {
+        final double f2 = ((t - times.maghrib) / (times.isha - times.maghrib)).clamp(0.0, 1.0);
+        baseColor = Color.lerp(sunset, night, f2)!;
+      }
+    }
+
+    if (condition == 'clear') return baseColor;
+
+    const gray = Color(0xFF646E78);  // [100, 110, 120]
+    const storm = Color(0xFF3C424E); // [60, 66, 78]
+    final target = condition == 'storm' ? storm : gray;
+    return Color.lerp(baseColor, target, 0.75)!;
   }
 }

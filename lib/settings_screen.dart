@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'mizwala_dial.dart';
@@ -86,7 +85,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               fontWeight: FontWeight.w600,
             ),
           ),
-          backgroundColor: MizwalaTheme.accent,
+          backgroundColor: MizwalaTheme.amber,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           duration: const Duration(seconds: 2),
@@ -103,9 +102,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       builder: (context, child) => Theme(
         data: ThemeData.dark().copyWith(
           colorScheme: const ColorScheme.dark(
-            primary: MizwalaTheme.accent,
-            onPrimary: Colors.black,
-            surface: Color(0xFF1C1C20),
+            primary: MizwalaTheme.indigo,
+            onPrimary: Colors.white,
+            surface: Color(0xFF16161A),
             onSurface: Colors.white,
           ),
         ),
@@ -129,9 +128,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       builder: (context, child) => Theme(
         data: ThemeData.dark().copyWith(
           colorScheme: const ColorScheme.dark(
-            primary: MizwalaTheme.accent,
-            onPrimary: Colors.black,
-            surface: Color(0xFF1C1C20),
+            primary: MizwalaTheme.indigo,
+            onPrimary: Colors.white,
+            surface: Color(0xFF16161A),
             onSurface: Colors.white,
           ),
         ),
@@ -150,7 +149,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: MizwalaTheme.bg0,
+      backgroundColor: MizwalaTheme.bg,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -174,7 +173,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: const Text(
                 'Enregistrer',
                 style: TextStyle(
-                  color: MizwalaTheme.accent,
+                  color: MizwalaTheme.amber,
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                 ),
@@ -184,41 +183,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
       body: _loading
           ? const Center(
-              child: CircularProgressIndicator(color: MizwalaTheme.accent))
-          : Container(
-              decoration: const BoxDecoration(
-                gradient: RadialGradient(
-                  center: Alignment(0.0, -0.8),
-                  radius: 1.2,
-                  colors: [
-                    Color(0xFF23222A),
-                    Color(0xFF0A0A0C),
-                  ],
-                  stops: [0.0, 0.7],
-                ),
-              ),
-              child: ListView(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                children: [
-                  _sectionTitle('Sommeil & Repos'),
-                  const SizedBox(height: 8),
-                  _sleepSection(),
-                  const SizedBox(height: 20),
-                  _sectionTitle('Notifications des Prières'),
-                  const SizedBox(height: 4),
-                  _delaySelector(),
-                  const SizedBox(height: 16),
-                  _sectionTitle('Prières'),
-                  const SizedBox(height: 8),
-                  ..._prayerToggles(),
-                  const SizedBox(height: 24),
-                  _saveButton(),
-                  const SizedBox(height: 28),
-                  _infoCard(),
-                  const SizedBox(height: 20),
-                ],
-              ),
+              child: CircularProgressIndicator(color: MizwalaTheme.amber))
+          : ListView(
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+              children: [
+                _sectionTitle('Sommeil & Repos'),
+                const SizedBox(height: 8),
+                _sleepSection(),
+                const SizedBox(height: 20),
+                _sectionTitle('Notifications des Prières'),
+                const SizedBox(height: 4),
+                _delaySelector(),
+                const SizedBox(height: 16),
+                _sectionTitle('Prières'),
+                const SizedBox(height: 8),
+                ..._prayerToggles(),
+                const SizedBox(height: 24),
+                _saveButton(),
+                const SizedBox(height: 28),
+                _infoCard(),
+                const SizedBox(height: 20),
+              ],
             ),
     );
   }
@@ -239,9 +224,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final wakeupStr =
         '${_wakeupHour.toString().padLeft(2, '0')}:${_wakeupMinute.toString().padLeft(2, '0')}';
 
-    return _GlassCard(
-      borderRadius: 18,
+    return Container(
       padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0x0FFFFFFF),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: MizwalaTheme.glassBorder),
+      ),
       child: Column(
         children: [
           SwitchListTile(
@@ -251,7 +240,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _sleepEnabled = v;
               _dirty = true;
             }),
-            activeColor: MizwalaTheme.accent,
+            activeColor: MizwalaTheme.indigo,
             title: const Text(
               'Afficher le Sommeil sur le cadran',
               style: TextStyle(
@@ -261,7 +250,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
             subtitle: const Text(
-              'Repère et arc de repos sur le cycle 24h',
+              'Arc indigo réglable sur le cycle 24h',
               style: TextStyle(
                 color: MizwalaTheme.label2,
                 fontSize: 12.5,
@@ -269,7 +258,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             secondary: Icon(
               Icons.bedtime_outlined,
-              color: _sleepEnabled ? MizwalaTheme.accent : MizwalaTheme.label3,
+              color: _sleepEnabled ? MizwalaTheme.indigo : MizwalaTheme.label3,
             ),
           ),
           if (_sleepEnabled) ...[
@@ -284,8 +273,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 12, vertical: 10),
                       decoration: BoxDecoration(
-                        color: MizwalaTheme.glass,
-                        border: Border.all(color: MizwalaTheme.glassBorder),
+                        color: const Color(0x14FFFFFF),
+                        border: Border.all(color: MizwalaTheme.indigo.withOpacity(0.4)),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Column(
@@ -294,16 +283,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           const Text(
                             'Coucher',
                             style: TextStyle(
-                              color: MizwalaTheme.label2,
+                              color: MizwalaTheme.indigo,
                               fontSize: 11,
-                              fontWeight: FontWeight.w500,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                           const SizedBox(height: 3),
                           Text(
                             bedtimeStr,
                             style: const TextStyle(
-                              color: MizwalaTheme.label1,
+                              color: Colors.white,
                               fontSize: 19,
                               fontWeight: FontWeight.w600,
                               fontFeatures: [FontFeature.tabularFigures()],
@@ -323,8 +312,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 12, vertical: 10),
                       decoration: BoxDecoration(
-                        color: MizwalaTheme.glass,
-                        border: Border.all(color: MizwalaTheme.glassBorder),
+                        color: const Color(0x14FFFFFF),
+                        border: Border.all(color: MizwalaTheme.indigo.withOpacity(0.4)),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Column(
@@ -333,16 +322,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           const Text(
                             'Réveil',
                             style: TextStyle(
-                              color: MizwalaTheme.label2,
+                              color: MizwalaTheme.indigo,
                               fontSize: 11,
-                              fontWeight: FontWeight.w500,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                           const SizedBox(height: 3),
                           Text(
                             wakeupStr,
                             style: const TextStyle(
-                              color: MizwalaTheme.label1,
+                              color: Colors.white,
                               fontSize: 19,
                               fontWeight: FontWeight.w600,
                               fontFeatures: [FontFeature.tabularFigures()],
@@ -391,11 +380,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     horizontal: 14, vertical: 8),
                 decoration: BoxDecoration(
                   color: selected
-                      ? MizwalaTheme.accent
-                      : MizwalaTheme.glass,
+                      ? MizwalaTheme.amber
+                      : const Color(0x0FFFFFFF),
                   border: Border.all(
                     color: selected
-                        ? MizwalaTheme.accent
+                        ? MizwalaTheme.amber
                         : MizwalaTheme.glassBorder,
                   ),
                   borderRadius: BorderRadius.circular(100),
@@ -423,44 +412,48 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final label = item.label;
       final time = MizwalaCalculator.format(map[key]!);
       final isOn = _enabled[key] ?? true;
+      final isDohr = key == 'dhuhr';
+      final itemColor = isDohr ? MizwalaTheme.amber : MizwalaTheme.teal;
 
       return Container(
         margin: const EdgeInsets.only(bottom: 8),
-        child: _GlassCard(
-          borderRadius: 16,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-          child: SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            value: isOn,
-            onChanged: (v) => setState(() {
-              _enabled[key] = v;
-              _dirty = true;
-            }),
-            activeColor: MizwalaTheme.accent,
-            title: Text(
-              label,
-              style: TextStyle(
-                color: isOn ? MizwalaTheme.label1 : MizwalaTheme.label3,
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-              ),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+        decoration: BoxDecoration(
+          color: const Color(0x0DFFFFFF),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: MizwalaTheme.glassBorder),
+        ),
+        child: SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          value: isOn,
+          onChanged: (v) => setState(() {
+            _enabled[key] = v;
+            _dirty = true;
+          }),
+          activeColor: itemColor,
+          title: Text(
+            label,
+            style: TextStyle(
+              color: isOn ? Colors.white : MizwalaTheme.label3,
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
             ),
-            subtitle: Text(
-              time,
-              style: TextStyle(
-                color: isOn ? MizwalaTheme.accent : MizwalaTheme.label3,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                fontFeatures: const [FontFeature.tabularFigures()],
-              ),
+          ),
+          subtitle: Text(
+            time,
+            style: TextStyle(
+              color: isOn ? itemColor : MizwalaTheme.label3,
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              fontFeatures: const [FontFeature.tabularFigures()],
             ),
-            secondary: Icon(
-              isOn
-                  ? Icons.notifications_active_outlined
-                  : Icons.notifications_off_outlined,
-              color: isOn ? MizwalaTheme.accent : MizwalaTheme.label3,
-              size: 20,
-            ),
+          ),
+          secondary: Icon(
+            isOn
+                ? Icons.notifications_active_outlined
+                : Icons.notifications_off_outlined,
+            color: isOn ? itemColor : MizwalaTheme.label3,
+            size: 20,
           ),
         ),
       );
@@ -473,7 +466,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       child: ElevatedButton(
         onPressed: _save,
         style: ElevatedButton.styleFrom(
-          backgroundColor: MizwalaTheme.accent,
+          backgroundColor: MizwalaTheme.amber,
           foregroundColor: Colors.black,
           padding: const EdgeInsets.symmetric(vertical: 14),
           elevation: 0,
@@ -493,9 +486,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _infoCard() {
-    return _GlassCard(
-      borderRadius: 16,
+    return Container(
       padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0x0AFFFFFF),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: MizwalaTheme.glassBorder),
+      ),
       child: const Text(
         'Les horaires sont calculés localement pour Marrakech (31.63°N / 7.98°O), '
         'UTC+1 fixe, méthode malikite. La météo temps réel est actualisée automatiquement.',
@@ -503,37 +500,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           color: MizwalaTheme.label3,
           fontSize: 12.5,
           height: 1.4,
-        ),
-      ),
-    );
-  }
-}
-
-class _GlassCard extends StatelessWidget {
-  final Widget child;
-  final double borderRadius;
-  final EdgeInsetsGeometry? padding;
-
-  const _GlassCard({
-    required this.child,
-    this.borderRadius = 16,
-    this.padding,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(borderRadius),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-        child: Container(
-          padding: padding,
-          decoration: BoxDecoration(
-            color: MizwalaTheme.glass,
-            borderRadius: BorderRadius.circular(borderRadius),
-            border: Border.all(color: MizwalaTheme.glassBorder),
-          ),
-          child: child,
         ),
       ),
     );

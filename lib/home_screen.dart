@@ -23,6 +23,7 @@ class MizwalaHomeScreen extends StatefulWidget {
 class _MizwalaHomeScreenState extends State<MizwalaHomeScreen> {
   Timer? _timer;
   Timer? _weatherTimer;
+  Timer? _sleepSaveDebounce;
   late PrayerTimes _times;
   WeatherData? _weatherData;
 
@@ -61,6 +62,7 @@ class _MizwalaHomeScreenState extends State<MizwalaHomeScreen> {
   void dispose() {
     _timer?.cancel();
     _weatherTimer?.cancel();
+    _sleepSaveDebounce?.cancel();
     super.dispose();
   }
 
@@ -79,6 +81,22 @@ class _MizwalaHomeScreenState extends State<MizwalaHomeScreen> {
         _sleepWakeupDecimal = wH + wM / 60.0;
       });
     }
+  }
+
+  void _saveSleepPrefsDebounced() {
+    _sleepSaveDebounce?.cancel();
+    _sleepSaveDebounce = Timer(const Duration(milliseconds: 500), () async {
+      final prefs = await SharedPreferences.getInstance();
+      final bH = _sleepBedtimeDecimal.floor();
+      final bM = ((_sleepBedtimeDecimal - bH) * 60).round();
+      final wH = _sleepWakeupDecimal.floor();
+      final wM = ((_sleepWakeupDecimal - wH) * 60).round();
+
+      await prefs.setInt(kPrefSleepBedtimeH, bH);
+      await prefs.setInt(kPrefSleepBedtimeM, bM);
+      await prefs.setInt(kPrefSleepWakeupH, wH);
+      await prefs.setInt(kPrefSleepWakeupM, wM);
+    });
   }
 
   Future<void> _loadWeather() async {
@@ -135,9 +153,9 @@ class _MizwalaHomeScreenState extends State<MizwalaHomeScreen> {
       builder: (context, child) => Theme(
         data: ThemeData.dark().copyWith(
           colorScheme: const ColorScheme.dark(
-            primary: MizwalaTheme.accent,
+            primary: MizwalaTheme.amber,
             onPrimary: Colors.black,
-            surface: Color(0xFF1C1C20),
+            surface: Color(0xFF16161A),
             onSurface: Colors.white,
           ),
         ),
@@ -217,39 +235,65 @@ class _MizwalaHomeScreenState extends State<MizwalaHomeScreen> {
   Widget build(BuildContext context) {
     final nextPrayer = _getNextPrayer();
     final screenWidth = MediaQuery.of(context).size.width;
-    final dialSize = (screenWidth - 80).clamp(220.0, 320.0);
+    final cardWidth = (screenWidth - 32).clamp(300.0, 360.0);
+    final dialSize = (cardWidth - 40).clamp(260.0, 320.0);
 
     return Scaffold(
-      backgroundColor: MizwalaTheme.bg0,
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: RadialGradient(
-            center: Alignment(0.0, -0.6),
-            radius: 1.2,
-            colors: [
-              Color(0xFF23222A),
-              Color(0xFF0A0A0C),
-            ],
-            stops: [0.0, 0.7],
-          ),
-        ),
-        child: SafeArea(
+      backgroundColor: Colors.black,
+      body: SafeArea(
+        child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _buildHeader(),
-                const SizedBox(height: 14),
-                _buildDialCard(dialSize),
-                const SizedBox(height: 12),
-                _buildNextPrayerCard(nextPrayer),
-                const SizedBox(height: 12),
-                _buildChipsStrip(nextPrayer.key),
-                const SizedBox(height: 16),
-                _buildTabBar(),
-                const SizedBox(height: 10),
-              ],
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Container(
+              width: cardWidth,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: MizwalaTheme.card,
+                borderRadius: BorderRadius.circular(28),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.5),
+                    blurRadius: 40,
+                    offset: const Offset(0, 15),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  _buildHeader(),
+                  const SizedBox(height: 12),
+
+                  // Cadran central avec anneau interactif et disque météo
+                  MizwalaDial(
+                    times: _times,
+                    currentHourDecimal: _currentHourDecimal,
+                    size: dialSize,
+                    weatherData: _weatherData,
+                    sleepBedtime: _sleepBedtimeDecimal,
+                    sleepWakeup: _sleepWakeupDecimal,
+                    sleepEnabled: _sleepEnabled,
+                    onSleepBedtimeChanged: (val) {
+                      setState(() => _sleepBedtimeDecimal = val);
+                      _saveSleepPrefsDebounced();
+                    },
+                    onSleepWakeupChanged: (val) {
+                      setState(() => _sleepWakeupDecimal = val);
+                      _saveSleepPrefsDebounced();
+                    },
+                  ),
+
+                  const SizedBox(height: 14),
+                  _buildDateSelector(),
+                  const SizedBox(height: 16),
+                  _buildNextPrayerBanner(nextPrayer),
+                  const SizedBox(height: 14),
+                  _buildPrayerChips(nextPrayer.key),
+                  const SizedBox(height: 16),
+                  _buildBottomTabBar(),
+                ],
+              ),
             ),
           ),
         ),
@@ -262,46 +306,53 @@ class _MizwalaHomeScreenState extends State<MizwalaHomeScreen> {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Column(
+        const Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Mizwala',
               style: TextStyle(
-                color: MizwalaTheme.label1,
-                fontSize: 28,
+                color: Colors.white,
+                fontSize: 26,
                 fontWeight: FontWeight.w700,
                 letterSpacing: -0.02,
+                fontFamily: '-apple-system',
               ),
             ),
-            const SizedBox(height: 2),
+            SizedBox(height: 2),
             Text(
               'Marrakech',
               style: TextStyle(
                 color: MizwalaTheme.label2,
                 fontSize: 13,
                 fontWeight: FontWeight.w400,
+                fontFamily: '-apple-system',
               ),
             ),
           ],
         ),
-        _GlassBox(
-          borderRadius: 17,
-          padding: const EdgeInsets.all(8),
-          child: InkWell(
-            onTap: () async {
-              await Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const SettingsScreen()),
-              );
-              _loadSleepPrefs();
-              NotificationService.reschedule(_times);
-            },
-            borderRadius: BorderRadius.circular(17),
+        InkWell(
+          onTap: () async {
+            await Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const SettingsScreen()),
+            );
+            _loadSleepPrefs();
+            NotificationService.reschedule(_times);
+          },
+          borderRadius: BorderRadius.circular(18),
+          child: Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: const Color(0x14FFFFFF),
+              shape: BoxShape.circle,
+              border: Border.all(color: MizwalaTheme.glassBorder),
+            ),
             child: const Icon(
               Icons.settings_outlined,
               color: MizwalaTheme.label2,
-              size: 20,
+              size: 18,
             ),
           ),
         ),
@@ -309,100 +360,72 @@ class _MizwalaHomeScreenState extends State<MizwalaHomeScreen> {
     );
   }
 
-  Widget _buildDialCard(double dialSize) {
-    final hh = _marrakechNow.hour.toString().padLeft(2, '0');
-    final mm = _marrakechNow.minute.toString().padLeft(2, '0');
+  Widget _buildDateSelector() {
     final dateStr =
         '${_selectedDate.day} ${kFrenchMonths[_selectedDate.month - 1]}';
 
-    return _GlassBox(
-      borderRadius: 28,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
-      child: Column(
+    return GestureDetector(
+      onTap: _pickDate,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          MizwalaDial(
-            times: _times,
-            currentHourDecimal: _currentHourDecimal,
-            size: dialSize,
-            weatherData: _weatherData,
-            sleepBedtime: _sleepBedtimeDecimal,
-            sleepWakeup: _sleepWakeupDecimal,
-            sleepEnabled: _sleepEnabled,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '$hh:$mm',
-            style: const TextStyle(
-              color: MizwalaTheme.label1,
-              fontSize: 34,
-              fontWeight: FontWeight.w700,
-              letterSpacing: -0.01,
-              fontFeatures: [FontFeature.tabularFigures()],
-            ),
-          ),
-          const SizedBox(height: 3),
-          GestureDetector(
-            onTap: _pickDate,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (_isManualDate) ...[
-                  GestureDetector(
-                    onTap: _resetToToday,
-                    child: const Row(
-                      children: [
-                        Icon(Icons.refresh,
-                            color: MizwalaTheme.accent, size: 13),
-                        SizedBox(width: 3),
-                        Text(
-                          'Aujourd\'hui',
-                          style: TextStyle(
-                            color: MizwalaTheme.accent,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        SizedBox(width: 8),
-                      ],
+          if (_isManualDate) ...[
+            GestureDetector(
+              onTap: _resetToToday,
+              child: const Row(
+                children: [
+                  Icon(Icons.refresh, color: MizwalaTheme.amber, size: 13),
+                  SizedBox(width: 3),
+                  Text(
+                    'Aujourd\'hui',
+                    style: TextStyle(
+                      color: MizwalaTheme.amber,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
+                  SizedBox(width: 8),
                 ],
-                Text(
-                  dateStr,
-                  style: TextStyle(
-                    color: _isManualDate
-                        ? MizwalaTheme.accent
-                        : MizwalaTheme.label2,
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w400,
-                  ),
-                ),
-                const SizedBox(width: 4),
-                Icon(
-                  Icons.calendar_today_outlined,
-                  size: 12,
-                  color: _isManualDate
-                      ? MizwalaTheme.accent
-                      : MizwalaTheme.label3,
-                ),
-              ],
+              ),
             ),
+          ],
+          Text(
+            dateStr,
+            style: TextStyle(
+              color: _isManualDate ? MizwalaTheme.amber : MizwalaTheme.label2,
+              fontSize: 13,
+              fontWeight: FontWeight.w400,
+              fontFamily: '-apple-system',
+            ),
+          ),
+          const SizedBox(width: 4),
+          Icon(
+            Icons.calendar_today_outlined,
+            size: 12,
+            color: _isManualDate ? MizwalaTheme.amber : MizwalaTheme.label3,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildNextPrayerCard(
+  Widget _buildNextPrayerBanner(
       ({String key, String label, double time, int diffHours, int diffMinutes})
           next) {
     final diffStr = next.diffHours > 0
         ? 'dans ${next.diffHours}h ${next.diffMinutes}min'
         : 'dans ${next.diffMinutes}min';
 
-    return _GlassBox(
-      borderRadius: 20,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+    final isDohr = next.key == 'dhuhr';
+    final accentColor = isDohr ? MizwalaTheme.amber : MizwalaTheme.teal;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0x0FFFFFFF),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: MizwalaTheme.glassBorder),
+      ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -413,17 +436,17 @@ class _MizwalaHomeScreenState extends State<MizwalaHomeScreen> {
                 'PROCHAINE PRIÈRE',
                 style: TextStyle(
                   color: MizwalaTheme.label2,
-                  fontSize: 11.5,
+                  fontSize: 11,
                   fontWeight: FontWeight.w600,
                   letterSpacing: 0.06,
                 ),
               ),
-              const SizedBox(height: 3),
+              const SizedBox(height: 2),
               Text(
                 next.label,
-                style: const TextStyle(
-                  color: MizwalaTheme.label1,
-                  fontSize: 19,
+                style: TextStyle(
+                  color: accentColor,
+                  fontSize: 18,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -432,16 +455,16 @@ class _MizwalaHomeScreenState extends State<MizwalaHomeScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: MizwalaTheme.accentDim,
+              color: accentColor.withOpacity(0.20),
               borderRadius: BorderRadius.circular(100),
             ),
             child: Text(
               diffStr,
-              style: const TextStyle(
-                color: MizwalaTheme.accent,
-                fontSize: 12.5,
+              style: TextStyle(
+                color: accentColor,
+                fontSize: 12,
                 fontWeight: FontWeight.w600,
-                fontFeatures: [FontFeature.tabularFigures()],
+                fontFeatures: const [FontFeature.tabularFigures()],
               ),
             ),
           ),
@@ -450,15 +473,15 @@ class _MizwalaHomeScreenState extends State<MizwalaHomeScreen> {
     );
   }
 
-  Widget _buildChipsStrip(String nextKey) {
+  Widget _buildPrayerChips(String nextKey) {
     final chips = [
-      ('fajr', 'Fajr', _times.fajr),
-      ('sunrise', 'Chourouk', _times.sunrise),
-      ('dhuhr', 'Dohr', _times.dhuhr),
-      ('asr', 'Asr', _times.asr),
-      ('maghrib', 'Maghrib', _times.maghrib),
-      ('isha', 'Icha', _times.isha),
-      if (_sleepEnabled) ('sleep', 'Sommeil', _sleepBedtimeDecimal),
+      ('fajr', 'Fajr', _times.fajr, MizwalaTheme.teal),
+      ('sunrise', 'Chourouk', _times.sunrise, MizwalaTheme.teal),
+      ('dhuhr', 'Dohr', _times.dhuhr, MizwalaTheme.amber),
+      ('asr', 'Asr', _times.asr, MizwalaTheme.teal),
+      ('maghrib', 'Maghrib', _times.maghrib, MizwalaTheme.teal),
+      ('isha', 'Icha', _times.isha, MizwalaTheme.teal),
+      if (_sleepEnabled) ('sleep', 'Sommeil', _sleepBedtimeDecimal, MizwalaTheme.indigo),
     ];
 
     return SingleChildScrollView(
@@ -468,6 +491,7 @@ class _MizwalaHomeScreenState extends State<MizwalaHomeScreen> {
         children: chips.map((c) {
           final isActive = c.$1 == nextKey;
           final isSleep = c.$1 == 'sleep';
+          final color = c.$4;
 
           return Padding(
             padding: const EdgeInsets.only(right: 8),
@@ -482,69 +506,76 @@ class _MizwalaHomeScreenState extends State<MizwalaHomeScreen> {
                       _loadSleepPrefs();
                     }
                   : null,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 300),
-                    constraints: const BoxConstraints(minWidth: 64),
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: isActive
-                          ? MizwalaTheme.accentDim
-                          : MizwalaTheme.glass,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: isActive
-                            ? MizwalaTheme.accentBorder
-                            : MizwalaTheme.glassBorder,
-                        width: 1,
-                      ),
-                    ),
-                    child: Column(
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 250),
+                constraints: const BoxConstraints(minWidth: 58),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                decoration: BoxDecoration(
+                  color: isActive
+                      ? color.withOpacity(0.22)
+                      : const Color(0x0DFFFFFF),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: isActive
+                        ? color.withOpacity(0.60)
+                        : MizwalaTheme.glassBorder,
+                    width: 1,
+                  ),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
+                        Container(
+                          width: 6,
+                          height: 6,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: color,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
                         Text(
                           c.$2.toUpperCase(),
                           style: TextStyle(
-                            color: isActive
-                                ? MizwalaTheme.accent
-                                : MizwalaTheme.label2,
+                            color: isActive ? color : MizwalaTheme.label2,
                             fontSize: 10,
                             fontWeight: FontWeight.w600,
                             letterSpacing: 0.04,
                           ),
                         ),
-                        const SizedBox(height: 5),
-                        Text(
-                          MizwalaCalculator.format(c.$3),
-                          style: TextStyle(
-                            color: isActive
-                                ? MizwalaTheme.accent
-                                : MizwalaTheme.label1,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            fontFeatures: const [FontFeature.tabularFigures()],
-                          ),
-                        ),
                       ],
                     ),
-                  ),
+                    const SizedBox(height: 5),
+                    Text(
+                      MizwalaCalculator.format(c.$3),
+                      style: TextStyle(
+                        color: isActive ? color : Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
-          );
-        }).toList(),
+            );
+          }).toList(),
+        ),
       ),
     );
   }
 
-  Widget _buildTabBar() {
-    return _GlassBox(
-      borderRadius: 22,
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+  Widget _buildBottomTabBar() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0x0DFFFFFF),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: MizwalaTheme.glassBorder),
+      ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
@@ -588,7 +619,7 @@ class _MizwalaHomeScreenState extends State<MizwalaHomeScreen> {
             icon,
             style: TextStyle(
               fontSize: 16,
-              color: active ? MizwalaTheme.accent : MizwalaTheme.label3,
+              color: active ? MizwalaTheme.amber : MizwalaTheme.label3,
             ),
           ),
           const SizedBox(height: 2),
@@ -597,57 +628,10 @@ class _MizwalaHomeScreenState extends State<MizwalaHomeScreen> {
             style: TextStyle(
               fontSize: 10.5,
               fontWeight: active ? FontWeight.w600 : FontWeight.w400,
-              color: active ? MizwalaTheme.accent : MizwalaTheme.label3,
+              color: active ? MizwalaTheme.amber : MizwalaTheme.label3,
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-/// Conteneur générique Liquid Glass avec flou gaussien et bordure spéculaire
-class _GlassBox extends StatelessWidget {
-  final Widget child;
-  final double borderRadius;
-  final EdgeInsetsGeometry? padding;
-  final Color? color;
-  final Border? border;
-
-  const _GlassBox({
-    required this.child,
-    this.borderRadius = 20,
-    this.padding,
-    this.color,
-    this.border,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(borderRadius),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-        child: Container(
-          padding: padding,
-          decoration: BoxDecoration(
-            color: color ?? MizwalaTheme.glass,
-            borderRadius: BorderRadius.circular(borderRadius),
-            border: border ??
-                Border.all(
-                  color: MizwalaTheme.glassBorder,
-                  width: 1,
-                ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.35),
-                blurRadius: 25,
-                offset: const Offset(0, 10),
-              ),
-            ],
-          ),
-          child: child,
-        ),
       ),
     );
   }

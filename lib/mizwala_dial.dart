@@ -3,281 +3,444 @@ import 'package:flutter/material.dart';
 import 'prayer_times.dart';
 import 'weather_service.dart';
 
-/// Palette Apple / Liquid Glass
+/// Palette Apple Final Design
 class MizwalaTheme {
-  static const bg0 = Color(0xFF0A0A0C);
-  static const bg1 = Color(0xFF151519);
-  static const bgCard = Color(0xFF1A1A1E);
-  static const glass = Color(0x12FFFFFF); // rgba(255,255,255,0.07)
-  static const glassStrong = Color(0x1CFFFFFF); // rgba(255,255,255,0.11)
-  static const glassBorder = Color(0x24FFFFFF); // rgba(255,255,255,0.14)
-  static const label1 = Color(0xF0FFFFFF); // rgba(255,255,255,0.94)
-  static const label2 = Color(0x94FFFFFF); // rgba(255,255,255,0.58)
-  static const label3 = Color(0x57FFFFFF); // rgba(255,255,255,0.34)
-  static const accent = Color(0xFFFF9F0A); // Apple Orange / Amber
-  static const accentDim = Color(0x38FF9F0A); // rgba(255,159,10,0.22)
-  static const accentBorder = Color(0x59FF9F0A); // rgba(255,159,10,0.35)
+  static const bg = Color(0xFF0B0B0E);
+  static const card = Color(0xFF0B0B0E);
+  static const teal = Color(0xFF30B0C7);   // Prières (Fajr, Chourouk, Asr, Maghrib, Icha)
+  static const amber = Color(0xFFFF9F0A);  // Dohr + Soleil
+  static const indigo = Color(0xFF5E5CE6); // Sommeil
+  static const moon = Color(0xFFC7D2E0);   // Lune
+  static const label1 = Color(0xF2FFFFFF); // rgba(255,255,255,0.95)
+  static const label2 = Color(0x99FFFFFF); // rgba(255,255,255,0.60)
+  static const label3 = Color(0x80FFFFFF); // rgba(255,255,255,0.50)
+  static const glassBorder = Color(0x1AFFFFFF); // rgba(255,255,255,0.10)
 }
 
-const List<List<String>> kPrayerLabels = [
-  ['fajr', 'Fajr'],
-  ['sunrise', 'Chourouk'],
-  ['dhuhr', 'Dohr'],
-  ['asr', 'Asr'],
-  ['maghrib', 'Maghrib'],
-  ['isha', 'Icha'],
-];
+const List<String> kPrayerKeys = ['fajr', 'sunrise', 'asr', 'maghrib', 'isha'];
 
 class MizwalaDial extends StatelessWidget {
   final PrayerTimes times;
   final double currentHourDecimal;
   final double size;
   final WeatherData? weatherData;
-  final double? sleepBedtime;
-  final double? sleepWakeup;
+  final double sleepBedtime;
+  final double sleepWakeup;
   final bool sleepEnabled;
+  final ValueChanged<double>? onSleepBedtimeChanged;
+  final ValueChanged<double>? onSleepWakeupChanged;
 
   const MizwalaDial({
     super.key,
     required this.times,
     required this.currentHourDecimal,
-    this.size = 280,
+    this.size = 320,
     this.weatherData,
     this.sleepBedtime = 23.0,
     this.sleepWakeup = 6.5,
     this.sleepEnabled = true,
+    this.onSleepBedtimeChanged,
+    this.onSleepWakeupChanged,
   });
 
   @override
   Widget build(BuildContext context) {
-    return CustomPaint(
-      size: Size(size, size),
-      painter: _MizwalaApplePainter(
-        times: times,
-        currentHour: currentHourDecimal,
-        weatherData: weatherData,
-        sleepBedtime: sleepBedtime,
-        sleepWakeup: sleepWakeup,
-        sleepEnabled: sleepEnabled,
+    final scale = size / 340.0;
+    final discSize = 150.0 * scale;
+
+    // Couleur du ciel dynamique
+    final skyColor = WeatherService.computeSkyColor(
+      currentHourDecimal,
+      times,
+      weatherData?.conditionType ?? 'clear',
+    );
+
+    // Données de l'horloge et températures
+    final hh = (currentHourDecimal.floor() % 24).toString().padLeft(2, '0');
+    final mm = (((currentHourDecimal - currentHourDecimal.floor()) * 60).round() % 60)
+        .toString()
+        .padLeft(2, '0');
+    final clockStr = '$hh:$mm';
+
+    final tempStr = weatherData != null ? '${weatherData!.currentTemp.round()}°' : '--°';
+    final hlStr = weatherData != null
+        ? 'H:${weatherData!.maxTemp.round()}°  L:${weatherData!.minTemp.round()}°'
+        : 'H:--°  L:--°';
+
+    return SizedBox(
+      width: size,
+      height: size,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // 1. Anneau interactif (prières, sommeil, soleil/lune)
+          _InteractiveDialRing(
+            size: size,
+            times: times,
+            currentHour: currentHourDecimal,
+            sleepBedtime: sleepBedtime,
+            sleepWakeup: sleepWakeup,
+            sleepEnabled: sleepEnabled,
+            onSleepBedtimeChanged: onSleepBedtimeChanged,
+            onSleepWakeupChanged: onSleepWakeupChanged,
+          ),
+
+          // 2. Disque central dynamique
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 600),
+            curve: Curves.easeInOut,
+            width: discSize,
+            height: discSize,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: skyColor,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.4),
+                  blurRadius: 20 * scale,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // Icône météo
+                _buildWeatherIcon(scale),
+                const SizedBox(height: 2),
+                // Horloge numérique
+                Text(
+                  clockStr,
+                  style: TextStyle(
+                    fontSize: 36 * scale,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                    letterSpacing: -0.02 * (36 * scale),
+                    height: 1.05,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                    fontFamily: '-apple-system',
+                  ),
+                ),
+                const SizedBox(height: 2),
+                // Température actuelle
+                Text(
+                  tempStr,
+                  style: TextStyle(
+                    fontSize: 15 * scale,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.white.withOpacity(0.85),
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                    fontFamily: '-apple-system',
+                  ),
+                ),
+                // High / Low
+                Text(
+                  hlStr,
+                  style: TextStyle(
+                    fontSize: 10 * scale,
+                    fontWeight: FontWeight.w400,
+                    color: MizwalaTheme.label3,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                    fontFamily: '-apple-system',
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWeatherIcon(double scale) {
+    final isDay = currentHourDecimal >= times.sunrise && currentHourDecimal < times.maghrib;
+    final isSunset = isDay && currentHourDecimal >= (times.maghrib - 1.0);
+    final condition = weatherData?.conditionType ?? 'clear';
+
+    IconData iconData;
+    Color iconColor;
+
+    if (condition == 'rain') {
+      iconData = Icons.grain;
+      iconColor = const Color(0xFF8AD1E8);
+    } else if (condition == 'storm') {
+      iconData = Icons.flash_on;
+      iconColor = const Color(0xFFFFD60A);
+    } else if (condition == 'clouds') {
+      iconData = Icons.cloud;
+      iconColor = Colors.white70;
+    } else if (isSunset) {
+      iconData = Icons.wb_twilight;
+      iconColor = MizwalaTheme.amber;
+    } else if (isDay) {
+      iconData = Icons.wb_sunny;
+      iconColor = MizwalaTheme.amber;
+    } else {
+      iconData = Icons.nights_stay;
+      iconColor = MizwalaTheme.moon;
+    }
+
+    return Icon(
+      iconData,
+      size: 24 * scale,
+      color: iconColor,
+    );
+  }
+}
+
+/// Dessin de l'anneau SVG + gestion du glisser des poignées de sommeil
+class _InteractiveDialRing extends StatefulWidget {
+  final double size;
+  final PrayerTimes times;
+  final double currentHour;
+  final double sleepBedtime;
+  final double sleepWakeup;
+  final bool sleepEnabled;
+  final ValueChanged<double>? onSleepBedtimeChanged;
+  final ValueChanged<double>? onSleepWakeupChanged;
+
+  const _InteractiveDialRing({
+    required this.size,
+    required this.times,
+    required this.currentHour,
+    required this.sleepBedtime,
+    required this.sleepWakeup,
+    required this.sleepEnabled,
+    this.onSleepBedtimeChanged,
+    this.onSleepWakeupChanged,
+  });
+
+  @override
+  State<_InteractiveDialRing> createState() => _InteractiveDialRingState();
+}
+
+class _InteractiveDialRingState extends State<_InteractiveDialRing> {
+  String? _dragTarget; // 'start' | 'end' | null
+
+  void _handlePointerDown(Offset localPos) {
+    if (!widget.sleepEnabled) return;
+
+    final scale = widget.size / 340.0;
+    final cx = widget.size / 2;
+    final cy = widget.size / 2;
+    final r = 133.0 * scale;
+
+    Offset pt(double angleDeg) {
+      final rad = angleDeg * math.pi / 180.0;
+      return Offset(cx + r * math.sin(rad), cy - r * math.cos(rad));
+    }
+
+    final aStart = MizwalaCalculator.angleFromTop(widget.sleepBedtime, widget.times.dhuhr);
+    final aEnd = MizwalaCalculator.angleFromTop(widget.sleepWakeup, widget.times.dhuhr);
+
+    final pStart = pt(aStart);
+    final pEnd = pt(aEnd);
+
+    final hitRadius = 24.0 * scale;
+
+    if ((localPos - pStart).distance <= hitRadius) {
+      setState(() => _dragTarget = 'start');
+    } else if ((localPos - pEnd).distance <= hitRadius) {
+      setState(() => _dragTarget = 'end');
+    }
+  }
+
+  void _handlePointerMove(Offset localPos) {
+    if (_dragTarget == null) return;
+
+    final cx = widget.size / 2;
+    final cy = widget.size / 2;
+    final dx = localPos.dx - cx;
+    final dy = -(localPos.dy - cy);
+
+    var angleDeg = (math.atan2(dx, dy) * 180.0 / math.pi) % 360.0;
+    if (angleDeg < 0) angleDeg += 360.0;
+
+    var time = (widget.times.dhuhr + angleDeg / 15.0) % 24.0;
+    if (time < 0) time += 24.0;
+
+    // Arrondir au quart d'heure ou 5 minutes
+    final roundedMinute = (((time - time.floor()) * 60) / 5).round() * 5;
+    final roundedTime = (time.floor() + roundedMinute / 60.0) % 24.0;
+
+    if (_dragTarget == 'start') {
+      widget.onSleepBedtimeChanged?.call(roundedTime);
+    } else if (_dragTarget == 'end') {
+      widget.onSleepWakeupChanged?.call(roundedTime);
+    }
+  }
+
+  void _handlePointerUp() {
+    if (_dragTarget != null) {
+      setState(() => _dragTarget = null);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Listener(
+      onPointerDown: (e) => _handlePointerDown(e.localPosition),
+      onPointerMove: (e) => _handlePointerMove(e.localPosition),
+      onPointerUp: (_) => _handlePointerUp(),
+      onPointerCancel: (_) => _handlePointerUp(),
+      child: CustomPaint(
+        size: Size(widget.size, widget.size),
+        painter: _AppleFinalDialPainter(
+          times: widget.times,
+          currentHour: widget.currentHour,
+          sleepBedtime: widget.sleepBedtime,
+          sleepWakeup: widget.sleepWakeup,
+          sleepEnabled: widget.sleepEnabled,
+        ),
       ),
     );
   }
 }
 
-class _MizwalaApplePainter extends CustomPainter {
+class _AppleFinalDialPainter extends CustomPainter {
   final PrayerTimes times;
   final double currentHour;
-  final WeatherData? weatherData;
-  final double? sleepBedtime;
-  final double? sleepWakeup;
+  final double sleepBedtime;
+  final double sleepWakeup;
   final bool sleepEnabled;
 
-  _MizwalaApplePainter({
+  _AppleFinalDialPainter({
     required this.times,
     required this.currentHour,
-    this.weatherData,
-    this.sleepBedtime,
-    this.sleepWakeup,
-    this.sleepEnabled = true,
+    required this.sleepBedtime,
+    required this.sleepWakeup,
+    required this.sleepEnabled,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
+    final scale = size.width / 340.0;
     final cx = size.width / 2;
     final cy = size.height / 2;
-    final scale = size.width / 300; // Base 300px
     final center = Offset(cx, cy);
-    final values = times.asMap();
+    final r = 133.0 * scale;
 
-    Offset pt(double angleDeg, double r) {
-      final rad = angleDeg * math.pi / 180;
-      return Offset(
-        cx + r * scale * math.sin(rad),
-        cy - r * scale * math.cos(rad),
-      );
+    Offset pt(double angleDeg) {
+      final rad = angleDeg * math.pi / 180.0;
+      return Offset(cx + r * math.sin(rad), cy - r * math.cos(rad));
     }
 
-    // 1. Cercle extérieur subtil
-    final outerRing = Paint()
-      ..color = const Color(0x1AFFFFFF) // rgba(255,255,255,0.10)
+    // 1. Cercle guide subtil
+    final ringPaint = Paint()
+      ..color = MizwalaTheme.glassBorder
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1 * scale;
-    canvas.drawCircle(center, 130 * scale, outerRing);
+      ..strokeWidth = 1.0 * scale;
+    canvas.drawCircle(center, r, ringPaint);
 
-    // 2. Arc du jour solaire (Chourouk -> Maghrib)
-    final aSunrise = MizwalaCalculator.angleFromTop(times.sunrise, times.dhuhr);
-    final aMaghrib = MizwalaCalculator.angleFromTop(times.maghrib, times.dhuhr);
-    final dayArcPaint = Paint()
-      ..color = MizwalaTheme.accent.withOpacity(0.32)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.5 * scale
-      ..strokeCap = StrokeCap.round;
-    final startRad = (aSunrise - 90) * math.pi / 180;
-    final sweepDeg = (aMaghrib - aSunrise + 360) % 360;
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: 120 * scale),
-      startRad,
-      sweepDeg * math.pi / 180,
-      false,
-      dayArcPaint,
-    );
+    // 2. Arc de Sommeil Indigo (si activé)
+    if (sleepEnabled) {
+      final aStart = MizwalaCalculator.angleFromTop(sleepBedtime, times.dhuhr);
+      final aEnd = MizwalaCalculator.angleFromTop(sleepWakeup, times.dhuhr);
 
-    // 3. Arc de Sommeil (Coucher -> Réveil) si activé
-    if (sleepEnabled && sleepBedtime != null && sleepWakeup != null) {
-      final aBed = MizwalaCalculator.angleFromTop(sleepBedtime!, times.dhuhr);
-      final aWake = MizwalaCalculator.angleFromTop(sleepWakeup!, times.dhuhr);
       final sleepArcPaint = Paint()
-        ..color = const Color(0x2EFFFFFF) // rgba(255,255,255,0.18)
+        ..color = MizwalaTheme.indigo
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.5 * scale
+        ..strokeWidth = 13.0 * scale
         ..strokeCap = StrokeCap.round;
-      final sleepStartRad = (aBed - 90) * math.pi / 180;
-      final sleepSweepDeg = (aWake - aBed + 360) % 360;
+
+      final startRad = (aStart - 90.0) * math.pi / 180.0;
+      final sweepDeg = (aEnd - aStart + 360.0) % 360.0;
+
       canvas.drawArc(
-        Rect.fromCircle(center: center, radius: 120 * scale),
-        sleepStartRad,
-        sleepSweepDeg * math.pi / 180,
+        Rect.fromCircle(center: center, radius: r),
+        startRad,
+        sweepDeg * math.pi / 180.0,
         false,
         sleepArcPaint,
       );
+
+      // Poignées de Sommeil
+      final s = pt(aStart);
+      final e = pt(aEnd);
+
+      for (final p in [s, e]) {
+        // Fond noir intérieur
+        canvas.drawCircle(
+          p,
+          9.0 * scale,
+          Paint()..color = MizwalaTheme.bg,
+        );
+        // Bordure indigo
+        canvas.drawCircle(
+          p,
+          9.0 * scale,
+          Paint()
+            ..color = MizwalaTheme.indigo
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 2.4 * scale,
+        );
+      }
     }
 
-    // 4. Graduations des 24 heures
-    for (int h = 0; h < 24; h++) {
-      final a = MizwalaCalculator.angleFromTop(h.toDouble(), times.dhuhr);
-      final major = h % 6 == 0;
-      final semi = h % 3 == 0 && !major;
-      final p1 = pt(a, 130);
-      final p2 = pt(a, major ? 116 : (semi ? 120 : 123));
-
-      final tickPaint = Paint()
-        ..color = major
-            ? const Color(0x73FFFFFF) // rgba(255,255,255,0.45)
-            : (semi ? const Color(0x40FFFFFF) : const Color(0x29FFFFFF))
-        ..strokeWidth = (major ? 1.6 : 1) * scale
-        ..strokeCap = StrokeCap.round;
-
-      canvas.drawLine(p1, p2, tickPaint);
-    }
-
-    // 5. Repères des prières sur l'anneau intérieur
-    for (final entry in kPrayerLabels) {
-      final key = entry[0];
-      final isDohr = key == 'dhuhr';
+    // 3. Repères des 5 prières Teal (Fajr, Chourouk, Asr, Maghrib, Icha)
+    final values = times.asMap();
+    for (final key in kPrayerKeys) {
       final a = MizwalaCalculator.angleFromTop(values[key]!, times.dhuhr);
-      final m = pt(a, 112);
+      final p = pt(a);
 
-      final markPaint = Paint()
-        ..color = isDohr ? MizwalaTheme.accent : const Color(0x8CFFFFFF);
-      canvas.drawCircle(m, (isDohr ? 5.5 : 3.4) * scale, markPaint);
+      // Fond noir
+      canvas.drawCircle(p, 9.0 * scale, Paint()..color = MizwalaTheme.bg);
+      // Bordure Teal
+      canvas.drawCircle(
+        p,
+        9.0 * scale,
+        Paint()
+          ..color = MizwalaTheme.teal
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2.4 * scale,
+      );
     }
 
-    // Repère de Sommeil
-    if (sleepEnabled && sleepBedtime != null) {
-      final a = MizwalaCalculator.angleFromTop(sleepBedtime!, times.dhuhr);
-      final m = pt(a, 112);
-      final sleepMarkPaint = Paint()..color = const Color(0x66FFFFFF);
-      canvas.drawCircle(m, 3.4 * scale, sleepMarkPaint);
-    }
+    // 4. Dohr (Ambre au sommet 0°)
+    final aDohr = MizwalaCalculator.angleFromTop(times.dhuhr, times.dhuhr);
+    final pDohr = pt(aDohr);
 
-    // 6. Curseur Soleil / Lune (indique l'heure actuelle sur le cadran 24h)
+    // Fond noir
+    canvas.drawCircle(pDohr, 9.0 * scale, Paint()..color = MizwalaTheme.bg);
+    // Bordure Ambre
+    canvas.drawCircle(
+      pDohr,
+      9.0 * scale,
+      Paint()
+        ..color = MizwalaTheme.amber
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.4 * scale,
+    );
+
+    // 5. Curseur Soleil / Lune (parcourt l'anneau en temps réel)
     final timeAngle = MizwalaCalculator.angleFromTop(currentHour, times.dhuhr);
-    final isDay = currentHour >= times.sunrise && currentHour <= times.maghrib;
-    final sunPos = pt(timeAngle, 120);
+    final isDay = currentHour >= times.sunrise && currentHour < times.maghrib;
+    final sp = pt(timeAngle);
+    final markerColor = isDay ? MizwalaTheme.amber : MizwalaTheme.moon;
 
-    // Halo extérieur doux
-    final outerHaloPaint = Paint()
-      ..color = isDay
-          ? MizwalaTheme.accent.withOpacity(0.18)
-          : const Color(0x1FFFFFFF);
-    canvas.drawCircle(sunPos, 11 * scale, outerHaloPaint);
-
-    // Halo intérieur
-    final haloPaint = Paint()
-      ..color = isDay
-          ? MizwalaTheme.accent.withOpacity(0.40)
-          : const Color(0x38FFFFFF);
-    canvas.drawCircle(sunPos, 6.5 * scale, haloPaint);
-
-    // Noyau lumineux principal
-    final corePaint = Paint()
-      ..color = isDay ? MizwalaTheme.accent : const Color(0xF0FFFFFF);
-    canvas.drawCircle(sunPos, 3.8 * scale, corePaint);
-
-    // 7. MÉTÉO EN TEMPS RÉEL (Grand format au cœur du cadran)
-    if (weatherData != null) {
-      _drawWeatherCenter(canvas, cx, cy, scale);
-    }
-  }
-
-  void _drawWeatherCenter(Canvas canvas, double cx, double cy, double scale) {
-    final weather = weatherData!;
-
-    // 1. Grand Symbole météo (☀️, 🌙, 🌅, 🌧️, ⛅...)
-    final symbolPainter = TextPainter(
-      text: TextSpan(
-        text: weather.iconSymbol,
-        style: TextStyle(
-          fontSize: 38 * scale,
-        ),
-      ),
-      textAlign: TextAlign.center,
-      textDirection: TextDirection.ltr,
-    )..layout();
-    symbolPainter.paint(
-      canvas,
-      Offset(cx - symbolPainter.width / 2, cy - 30 * scale),
+    // Anneau extérieur du curseur
+    canvas.drawCircle(
+      sp,
+      9.0 * scale,
+      Paint()
+        ..color = markerColor
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.2 * scale,
     );
 
-    // 2. Température actuelle (ex: "28°")
-    final tempStr = '${weather.currentTemp.round()}°';
-    final tempPainter = TextPainter(
-      text: TextSpan(
-        text: tempStr,
-        style: TextStyle(
-          color: MizwalaTheme.label1,
-          fontSize: 22 * scale,
-          fontWeight: FontWeight.w700,
-          letterSpacing: -0.02,
-          fontFeatures: const [FontFeature.tabularFigures()],
-          fontFamily: '-apple-system',
-        ),
-      ),
-      textAlign: TextAlign.center,
-      textDirection: TextDirection.ltr,
-    )..layout();
-    tempPainter.paint(
-      canvas,
-      Offset(cx - tempPainter.width / 2, cy + 14 * scale),
-    );
-
-    // 3. Température max et condition (ex: "Max 34° · Ensoleillé")
-    final subStr = 'Max ${weather.maxTemp.round()}° · ${weather.conditionLabel}';
-    final subPainter = TextPainter(
-      text: TextSpan(
-        text: subStr,
-        style: TextStyle(
-          color: MizwalaTheme.label2,
-          fontSize: 10.5 * scale,
-          fontWeight: FontWeight.w500,
-          fontFeatures: const [FontFeature.tabularFigures()],
-          fontFamily: '-apple-system',
-        ),
-      ),
-      textAlign: TextAlign.center,
-      textDirection: TextDirection.ltr,
-    )..layout();
-    subPainter.paint(
-      canvas,
-      Offset(cx - subPainter.width / 2, cy + 42 * scale),
+    // Noyau plein central du curseur
+    canvas.drawCircle(
+      sp,
+      5.0 * scale,
+      Paint()..color = markerColor,
     );
   }
 
   @override
-  bool shouldRepaint(covariant _MizwalaApplePainter oldDelegate) {
+  bool shouldRepaint(covariant _AppleFinalDialPainter oldDelegate) {
     return oldDelegate.currentHour != currentHour ||
         oldDelegate.times.dhuhr != times.dhuhr ||
-        oldDelegate.weatherData != weatherData ||
         oldDelegate.sleepBedtime != sleepBedtime ||
         oldDelegate.sleepWakeup != sleepWakeup ||
         oldDelegate.sleepEnabled != sleepEnabled;
