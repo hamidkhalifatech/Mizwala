@@ -41,10 +41,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
   int _wakeupHour = 6;
   int _wakeupMinute = 30;
 
-  // Sonnerie personnalisée
-  String? _customSoundPath;
-  String? _customSoundName;
-  bool _isPlayingSound = false;
+  // Sonnerie Prières (Adhan)
+  String? _prayerSoundPath;
+  String? _prayerSoundName;
+  bool _isPlayingPrayerSound = false;
+
+  // Sonnerie Réveil (Sommeil)
+  String? _sleepSoundPath;
+  String? _sleepSoundName;
+  bool _isPlayingSleepSound = false;
 
   // Horaires du jour pour l'affichage
   late PrayerTimes _todayTimes;
@@ -78,8 +83,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _bedtimeMinute = prefs.getInt(kPrefSleepBedtimeM) ?? 0;
       _wakeupHour = prefs.getInt(kPrefSleepWakeupH) ?? 6;
       _wakeupMinute = prefs.getInt(kPrefSleepWakeupM) ?? 30;
-      _customSoundPath = prefs.getString(kPrefCustomSoundPath);
-      _customSoundName = prefs.getString(kPrefCustomSoundName);
+      _prayerSoundPath = prefs.getString(kPrefPrayerSoundPath);
+      _prayerSoundName = prefs.getString(kPrefPrayerSoundName);
+      _sleepSoundPath = prefs.getString(kPrefSleepSoundPath);
+      _sleepSoundName = prefs.getString(kPrefSleepSoundName);
       _loading = false;
     });
   }
@@ -97,12 +104,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await prefs.setInt(kPrefSleepWakeupH, _wakeupHour);
     await prefs.setInt(kPrefSleepWakeupM, _wakeupMinute);
 
-    if (_customSoundPath != null) {
-      await prefs.setString(kPrefCustomSoundPath, _customSoundPath!);
-      await prefs.setString(kPrefCustomSoundName, _customSoundName ?? 'Fichier audio');
+    // Sauvegarde sonnerie Prières
+    if (_prayerSoundPath != null) {
+      await prefs.setString(kPrefPrayerSoundPath, _prayerSoundPath!);
+      await prefs.setString(
+          kPrefPrayerSoundName, _prayerSoundName ?? 'Fichier audio prière');
     } else {
-      await prefs.remove(kPrefCustomSoundPath);
-      await prefs.remove(kPrefCustomSoundName);
+      await prefs.remove(kPrefPrayerSoundPath);
+      await prefs.remove(kPrefPrayerSoundName);
+    }
+
+    // Sauvegarde sonnerie Réveil / Sommeil
+    if (_sleepSoundPath != null) {
+      await prefs.setString(kPrefSleepSoundPath, _sleepSoundPath!);
+      await prefs.setString(
+          kPrefSleepSoundName, _sleepSoundName ?? 'Fichier audio réveil');
+    } else {
+      await prefs.remove(kPrefSleepSoundPath);
+      await prefs.remove(kPrefSleepSoundName);
     }
 
     await NotificationService.reschedule(_todayTimes);
@@ -112,7 +131,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text(
-            'Réglages et sonnerie sauvegardés avec succès',
+            'Réglages et sonneries sauvegardés avec succès',
             style: TextStyle(
               color: Colors.black,
               fontWeight: FontWeight.w600,
@@ -127,7 +146,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  Future<void> _pickAudioFile() async {
+  Future<void> _pickPrayerAudio() async {
     try {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
@@ -139,27 +158,68 @@ class _SettingsScreenState extends State<SettingsScreen> {
         final name = result.files.single.name;
 
         setState(() {
-          _customSoundPath = path;
-          _customSoundName = name;
+          _prayerSoundPath = path;
+          _prayerSoundName = name;
           _dirty = true;
         });
 
-        // Lecture immédiate pour confirmation
-        _togglePlayPreview();
+        _togglePlayPrayerPreview();
       }
     } catch (e) {
-      debugPrint('Error picking audio file: $e');
+      debugPrint('Error picking prayer audio: $e');
     }
   }
 
-  Future<void> _togglePlayPreview() async {
-    if (_isPlayingSound) {
+  Future<void> _togglePlayPrayerPreview() async {
+    if (_isPlayingPrayerSound) {
       await NotificationService.stopAlarmSound();
-      setState(() => _isPlayingSound = false);
+      setState(() => _isPlayingPrayerSound = false);
     } else {
-      if (_customSoundPath != null) {
-        setState(() => _isPlayingSound = true);
-        await NotificationService.playCustomAlarmSound(_customSoundPath);
+      if (_prayerSoundPath != null) {
+        setState(() {
+          _isPlayingPrayerSound = true;
+          _isPlayingSleepSound = false;
+        });
+        await NotificationService.playCustomSound(_prayerSoundPath);
+      }
+    }
+  }
+
+  Future<void> _pickSleepAudio() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['mp3', 'wav', 'm4a', 'mp4', 'aac', 'ogg'],
+      );
+
+      if (result != null && result.files.single.path != null) {
+        final path = result.files.single.path!;
+        final name = result.files.single.name;
+
+        setState(() {
+          _sleepSoundPath = path;
+          _sleepSoundName = name;
+          _dirty = true;
+        });
+
+        _togglePlaySleepPreview();
+      }
+    } catch (e) {
+      debugPrint('Error picking sleep audio: $e');
+    }
+  }
+
+  Future<void> _togglePlaySleepPreview() async {
+    if (_isPlayingSleepSound) {
+      await NotificationService.stopAlarmSound();
+      setState(() => _isPlayingSleepSound = false);
+    } else {
+      if (_sleepSoundPath != null) {
+        setState(() {
+          _isPlayingSleepSound = true;
+          _isPlayingPrayerSound = false;
+        });
+        await NotificationService.playCustomSound(_sleepSoundPath);
       }
     }
   }
@@ -266,18 +326,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
           : ListView(
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
               children: [
-                _sectionTitle('Sonnerie de l\'Alarme & Adhan'),
+                _sectionTitle('🕌 Sonnerie des Prières (Adhan)'),
                 const SizedBox(height: 8),
-                _soundPickerCard(),
+                _prayerSoundCard(),
                 const SizedBox(height: 22),
-                _sectionTitle('Sommeil & Repos'),
+                _sectionTitle('⏰ Sonnerie du Réveil (Sommeil)'),
+                const SizedBox(height: 8),
+                _sleepSoundCard(),
+                const SizedBox(height: 22),
+                _sectionTitle('Horaires de Sommeil'),
                 const SizedBox(height: 8),
                 _sleepSection(),
                 const SizedBox(height: 22),
-                _sectionTitle('Notifications & Alarmes'),
-                const SizedBox(height: 6),
-                _testNotificationCard(),
-                const SizedBox(height: 12),
+                _sectionTitle('Préavis & Notifications'),
+                const SizedBox(height: 8),
                 _delaySelector(),
                 const SizedBox(height: 18),
                 _sectionTitle('Prières'),
@@ -303,18 +365,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
       );
 
-  Widget _soundPickerCard() {
-    final hasCustom = _customSoundPath != null && _customSoundPath!.isNotEmpty;
+  Widget _prayerSoundCard() {
+    final hasCustom = _prayerSoundPath != null && _prayerSoundPath!.isNotEmpty;
     final soundTitle = hasCustom
-        ? (_customSoundName ?? 'Fichier audio personnalisé')
-        : 'Sonnerie système par défaut';
+        ? (_prayerSoundName ?? 'Adhan personnalisé')
+        : 'Sonnerie prière par défaut';
 
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: const Color(0x0FFFFFFF),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: MizwalaTheme.glassBorder),
+        border: Border.all(color: MizwalaTheme.amber.withOpacity(0.35)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -329,7 +391,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
-                  Icons.audiotrack,
+                  Icons.mosque,
                   color: MizwalaTheme.amber,
                   size: 20,
                 ),
@@ -352,8 +414,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     const SizedBox(height: 2),
                     Text(
                       hasCustom
-                          ? 'Fichier audio chargé (.mp3, .wav, .m4a)'
-                          : 'Cliquez ci-dessous pour choisir votre sonnerie ou Adhan',
+                          ? 'Fichier Adhan chargé (.mp3, .wav)'
+                          : 'Choisir un fichier audio pour l\'appel à la prière',
                       style: const TextStyle(
                         color: MizwalaTheme.label2,
                         fontSize: 12,
@@ -369,17 +431,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
             children: [
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: _pickAudioFile,
+                  onPressed: _pickPrayerAudio,
                   icon: const Icon(Icons.folder_open, size: 16),
                   label: Text(
-                    hasCustom ? 'Changer de fichier' : 'Choisir un MP3 / WAV',
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                    hasCustom ? 'Changer l\'Adhan' : 'Choisir MP3 Prière',
+                    style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
                   ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0x1AFFFFFF),
                     foregroundColor: Colors.white,
                     elevation: 0,
-                    padding: const EdgeInsets.symmetric(vertical: 11),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                       side: const BorderSide(color: MizwalaTheme.glassBorder),
@@ -388,34 +450,208 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ),
               if (hasCustom) ...[
-                const SizedBox(width: 8),
+                const SizedBox(width: 6),
                 IconButton(
-                  onPressed: _togglePlayPreview,
+                  onPressed: _togglePlayPrayerPreview,
                   icon: Icon(
-                    _isPlayingSound ? Icons.stop_circle : Icons.play_circle_fill,
+                    _isPlayingPrayerSound
+                        ? Icons.stop_circle
+                        : Icons.play_circle_fill,
                     color: MizwalaTheme.amber,
-                    size: 32,
+                    size: 30,
                   ),
-                  tooltip: _isPlayingSound ? 'Arrêter' : 'Écouter',
+                  tooltip: _isPlayingPrayerSound ? 'Arrêter' : 'Écouter',
                 ),
                 IconButton(
                   onPressed: () {
                     NotificationService.stopAlarmSound();
                     setState(() {
-                      _customSoundPath = null;
-                      _customSoundName = null;
-                      _isPlayingSound = false;
+                      _prayerSoundPath = null;
+                      _prayerSoundName = null;
+                      _isPlayingPrayerSound = false;
                       _dirty = true;
                     });
                   },
                   icon: const Icon(
                     Icons.delete_outline,
                     color: MizwalaTheme.label3,
-                    size: 22,
+                    size: 20,
                   ),
-                  tooltip: 'Réinitialiser au son par défaut',
+                  tooltip: 'Réinitialiser',
                 ),
               ],
+              const SizedBox(width: 6),
+              ElevatedButton(
+                onPressed: () async {
+                  await NotificationService.sendTestPrayerNotification();
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Test de notification prière déclenché !'),
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: MizwalaTheme.amber,
+                  foregroundColor: Colors.black,
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
+                ),
+                child: const Text(
+                  'Tester',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 11.5),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _sleepSoundCard() {
+    final hasCustom = _sleepSoundPath != null && _sleepSoundPath!.isNotEmpty;
+    final soundTitle = hasCustom
+        ? (_sleepSoundName ?? 'Sonnerie réveil personnalisée')
+        : 'Sonnerie réveil système par défaut';
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0x0FFFFFFF),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: MizwalaTheme.indigo.withOpacity(0.40)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: MizwalaTheme.indigo.withOpacity(0.20),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.alarm,
+                  color: MizwalaTheme.indigo,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      soundTitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      hasCustom
+                          ? 'Fichier sonnerie réveil chargé (.mp3, .wav)'
+                          : 'Choisir un son spécifique pour votre réveil',
+                      style: const TextStyle(
+                        color: MizwalaTheme.label2,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: _pickSleepAudio,
+                  icon: const Icon(Icons.folder_open, size: 16),
+                  label: Text(
+                    hasCustom ? 'Changer le Réveil' : 'Choisir MP3 Réveil',
+                    style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0x1AFFFFFF),
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: const BorderSide(color: MizwalaTheme.glassBorder),
+                    ),
+                  ),
+                ),
+              ),
+              if (hasCustom) ...[
+                const SizedBox(width: 6),
+                IconButton(
+                  onPressed: _togglePlaySleepPreview,
+                  icon: Icon(
+                    _isPlayingSleepSound
+                        ? Icons.stop_circle
+                        : Icons.play_circle_fill,
+                    color: MizwalaTheme.indigo,
+                    size: 30,
+                  ),
+                  tooltip: _isPlayingSleepSound ? 'Arrêter' : 'Écouter',
+                ),
+                IconButton(
+                  onPressed: () {
+                    NotificationService.stopAlarmSound();
+                    setState(() {
+                      _sleepSoundPath = null;
+                      _sleepSoundName = null;
+                      _isPlayingSleepSound = false;
+                      _dirty = true;
+                    });
+                  },
+                  icon: const Icon(
+                    Icons.delete_outline,
+                    color: MizwalaTheme.label3,
+                    size: 20,
+                  ),
+                  tooltip: 'Réinitialiser',
+                ),
+              ],
+              const SizedBox(width: 6),
+              ElevatedButton(
+                onPressed: () async {
+                  await NotificationService.sendTestSleepNotification();
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Test d\'alarme réveil déclenché !'),
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: MizwalaTheme.indigo,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
+                ),
+                child: const Text(
+                  'Tester',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 11.5),
+                ),
+              ),
             ],
           ),
         ],
@@ -554,70 +790,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ],
             ),
           ],
-        ],
-      ),
-    );
-  }
-
-  Widget _testNotificationCard() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: MizwalaTheme.amber.withOpacity(0.12),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: MizwalaTheme.amber.withOpacity(0.35)),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Tester la sonnerie & notification',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                SizedBox(height: 2),
-                Text(
-                  'Déclenche la notification et joue votre sonnerie / Adhan',
-                  style: TextStyle(
-                    color: MizwalaTheme.label2,
-                    fontSize: 11.5,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          ElevatedButton(
-            onPressed: () async {
-              await NotificationService.sendTestNotification();
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Test d\'alarme et sonnerie déclenché !'),
-                    duration: Duration(seconds: 2),
-                  ),
-                );
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: MizwalaTheme.amber,
-              foregroundColor: Colors.black,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10)),
-            ),
-            child: const Text(
-              'Tester',
-              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
-            ),
-          ),
         ],
       ),
     );
@@ -768,7 +940,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
       child: const Text(
         'Les horaires sont calculés localement pour Marrakech (31.63°N / 7.98°O), '
-        'UTC+1 fixe, méthode malikite. Les alarmes et notifications jouent la sonnerie choisie au moment exact de vos prières.',
+        'UTC+1 fixe, méthode malikite. Les alertes de prière jouent votre sonnerie Adhan et le réveil joue votre alarme de sommeil dédiée.',
         style: TextStyle(
           color: MizwalaTheme.label3,
           fontSize: 12.5,

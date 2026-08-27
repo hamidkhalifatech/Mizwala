@@ -8,11 +8,17 @@ import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz_data;
 import 'prayer_times.dart';
 
-/// Clés des préférences pour les réglages de notification.
+/// Clés des préférences pour les réglages de notification et sons
 const kPrefPrefix = 'notif_enabled_';
 const kPrefDelay = 'notif_delay_minutes';
-const kPrefCustomSoundPath = 'custom_sound_path';
-const kPrefCustomSoundName = 'custom_sound_name';
+
+// Sonnerie Prières (Adhan)
+const kPrefPrayerSoundPath = 'custom_prayer_sound_path';
+const kPrefPrayerSoundName = 'custom_prayer_sound_name';
+
+// Sonnerie Réveil / Sommeil
+const kPrefSleepSoundPath = 'custom_sleep_sound_path';
+const kPrefSleepSoundName = 'custom_sleep_sound_name';
 
 class PrayerNotificationItem {
   final String key;
@@ -40,8 +46,11 @@ class NotificationService {
   static final AudioPlayer _audioPlayer = AudioPlayer();
   static bool _initialized = false;
 
-  static const String channelId = 'mizwala_prayers_v2';
-  static const String channelName = 'Horaires de Prière Mizwala';
+  static const String prayerChannelId = 'mizwala_prayers_channel';
+  static const String prayerChannelName = 'Horaires de Prière (Adhan)';
+
+  static const String sleepChannelId = 'mizwala_sleep_channel';
+  static const String sleepChannelName = 'Alarme Réveil & Sommeil';
 
   static Future<void> init() async {
     if (_initialized) return;
@@ -61,7 +70,7 @@ class NotificationService {
       );
       await _plugin.initialize(settings);
 
-      // Créer le canal Android haute priorité avec son et vibration
+      // Créer les canaux Android haute priorité avec son et vibration
       final androidImpl = _plugin.resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin>();
 
@@ -70,9 +79,9 @@ class NotificationService {
         await androidImpl.requestNotificationsPermission();
         await androidImpl.requestExactAlarmsPermission();
 
-        const channel = AndroidNotificationChannel(
-          channelId,
-          channelName,
+        const prayerChannel = AndroidNotificationChannel(
+          prayerChannelId,
+          prayerChannelName,
           description: 'Rappels et alertes avant chaque prière',
           importance: Importance.max,
           playSound: true,
@@ -80,7 +89,19 @@ class NotificationService {
           enableLights: true,
           ledColor: Color(0xFFFF9F0A),
         );
-        await androidImpl.createNotificationChannel(channel);
+        await androidImpl.createNotificationChannel(prayerChannel);
+
+        const sleepChannel = AndroidNotificationChannel(
+          sleepChannelId,
+          sleepChannelName,
+          description: 'Alarme de réveil à la fin de votre période de sommeil',
+          importance: Importance.max,
+          playSound: true,
+          enableVibration: true,
+          enableLights: true,
+          ledColor: Color(0xFF5E5CE6),
+        );
+        await androidImpl.createNotificationChannel(sleepChannel);
       }
 
       _initialized = true;
@@ -89,8 +110,8 @@ class NotificationService {
     }
   }
 
-  /// Joue le son d'alarme personnalisé ou par défaut
-  static Future<void> playCustomAlarmSound(String? path) async {
+  /// Joue un fichier audio
+  static Future<void> playCustomSound(String? path) async {
     try {
       await stopAlarmSound();
       if (path != null && path.isNotEmpty && File(path).existsSync()) {
@@ -98,7 +119,7 @@ class NotificationService {
         await _audioPlayer.play(DeviceFileSource(path));
       }
     } catch (e) {
-      debugPrint('Error playing custom alarm sound: $e');
+      debugPrint('Error playing sound: $e');
     }
   }
 
@@ -109,17 +130,17 @@ class NotificationService {
     } catch (_) {}
   }
 
-  /// Déclenche une notification de test immédiate avec sonnerie
-  static Future<void> sendTestNotification() async {
+  /// Déclenche une notification de test immédiate pour les Prières (Adhan)
+  static Future<void> sendTestPrayerNotification() async {
     try {
       await init();
       final prefs = await SharedPreferences.getInstance();
-      final customPath = prefs.getString(kPrefCustomSoundPath);
+      final soundPath = prefs.getString(kPrefPrayerSoundPath);
 
       const details = NotificationDetails(
         android: AndroidNotificationDetails(
-          channelId,
-          channelName,
+          prayerChannelId,
+          prayerChannelName,
           channelDescription: 'Rappels et alertes avant chaque prière',
           importance: Importance.max,
           priority: Priority.max,
@@ -136,17 +157,58 @@ class NotificationService {
       );
 
       await _plugin.show(
-        9999,
-        '🕌 Mizwala — Test d\'alarme',
-        'L\'alarme et les notifications de prière fonctionnent avec succès !',
+        8888,
+        '🕌 Mizwala — Test Sonnerie Prière',
+        'L\'alerte de prière (Adhan) fonctionne avec succès !',
         details,
       );
 
-      if (customPath != null && customPath.isNotEmpty) {
-        await playCustomAlarmSound(customPath);
+      if (soundPath != null && soundPath.isNotEmpty) {
+        await playCustomSound(soundPath);
       }
     } catch (e) {
-      debugPrint('Error sending test notification: $e');
+      debugPrint('Error sending test prayer notification: $e');
+    }
+  }
+
+  /// Déclenche une notification de test immédiate pour le Réveil / Sommeil
+  static Future<void> sendTestSleepNotification() async {
+    try {
+      await init();
+      final prefs = await SharedPreferences.getInstance();
+      final soundPath = prefs.getString(kPrefSleepSoundPath);
+
+      const details = NotificationDetails(
+        android: AndroidNotificationDetails(
+          sleepChannelId,
+          sleepChannelName,
+          channelDescription: 'Alarme de réveil à la fin de votre période de sommeil',
+          importance: Importance.max,
+          priority: Priority.max,
+          playSound: true,
+          enableVibration: true,
+          color: Color(0xFF5E5CE6),
+          icon: '@mipmap/ic_launcher',
+        ),
+        iOS: DarwinNotificationDetails(
+          presentAlert: true,
+          presentBadge: true,
+          presentSound: true,
+        ),
+      );
+
+      await _plugin.show(
+        7777,
+        '⏰ Mizwala — Test Alarme Réveil',
+        'L\'alarme de réveil et de fin de sommeil fonctionne avec succès !',
+        details,
+      );
+
+      if (soundPath != null && soundPath.isNotEmpty) {
+        await playCustomSound(soundPath);
+      }
+    } catch (e) {
+      debugPrint('Error sending test sleep notification: $e');
     }
   }
 
@@ -207,8 +269,8 @@ class NotificationService {
 
           const details = NotificationDetails(
             android: AndroidNotificationDetails(
-              channelId,
-              channelName,
+              prayerChannelId,
+              prayerChannelName,
               channelDescription: 'Rappels et alertes avant chaque prière',
               importance: Importance.max,
               priority: Priority.max,
@@ -238,7 +300,6 @@ class NotificationService {
                   UILocalNotificationDateInterpretation.absoluteTime,
             );
           } catch (_) {
-            // Fallback si l'appareil restreint les alarmes exactes
             try {
               await _plugin.zonedSchedule(
                 notifId++,
@@ -255,6 +316,56 @@ class NotificationService {
             } catch (e) {
               debugPrint('Schedule notification error: $e');
             }
+          }
+        }
+
+        // Planification de l'alarme de réveil (Sommeil)
+        final sleepEnabled = prefs.getBool('sleep_enabled') ?? true;
+        if (sleepEnabled) {
+          final wH = prefs.getInt('sleep_wakeup_hour') ?? 6;
+          final wM = prefs.getInt('sleep_wakeup_minute') ?? 30;
+
+          DateTime wakeUtc = DateTime.utc(
+            dayRef.year,
+            dayRef.month,
+            dayRef.day,
+            wH,
+            wM,
+          ).subtract(const Duration(hours: 1));
+
+          if (!wakeUtc.isBefore(nowUtc)) {
+            final tzWakeTime = tz.TZDateTime.from(wakeUtc, tz.UTC);
+            const wakeDetails = NotificationDetails(
+              android: AndroidNotificationDetails(
+                sleepChannelId,
+                sleepChannelName,
+                channelDescription: 'Alarme de réveil à la fin de votre période de sommeil',
+                importance: Importance.max,
+                priority: Priority.max,
+                playSound: true,
+                enableVibration: true,
+                color: Color(0xFF5E5CE6),
+                icon: '@mipmap/ic_launcher',
+              ),
+              iOS: DarwinNotificationDetails(
+                presentAlert: true,
+                presentBadge: true,
+                presentSound: true,
+              ),
+            );
+
+            try {
+              await _plugin.zonedSchedule(
+                5000 + notifId++,
+                '⏰ Fin de Sommeil & Réveil',
+                'Il est l\'heure de votre réveil !',
+                tzWakeTime,
+                wakeDetails,
+                androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+                uiLocalNotificationDateInterpretation:
+                    UILocalNotificationDateInterpretation.absoluteTime,
+              );
+            } catch (_) {}
           }
         }
       }
