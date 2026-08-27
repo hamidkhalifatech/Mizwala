@@ -334,7 +334,27 @@ class _AppleFinalDialPainter extends CustomPainter {
       ..strokeWidth = 1.0 * scale;
     canvas.drawCircle(center, r, ringPaint);
 
-    // 2. Arc de Sommeil Indigo (épaisseur diminuée de 50% : 6.5px au lieu de 13px)
+    // 2. Arc Diurne Fixe (Lever du Soleil -> Maghrib en Bleu Nuit #1E3A5F)
+    final aSunrise = MizwalaCalculator.angleFromTop(times.sunrise, times.dhuhr);
+    final aMaghrib = MizwalaCalculator.angleFromTop(times.maghrib, times.dhuhr);
+    final daySweepDeg = (aMaghrib - aSunrise + 360.0) % 360.0;
+    final dayStartRad = (aSunrise - 90.0) * math.pi / 180.0;
+
+    final dayArcPaint = Paint()
+      ..color = const Color(0xFF1E3A5F)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 6.5 * scale
+      ..strokeCap = StrokeCap.round;
+
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: r),
+      dayStartRad,
+      daySweepDeg * math.pi / 180.0,
+      false,
+      dayArcPaint,
+    );
+
+    // 3. Arc de Sommeil Indigo (épaisseur diminuée de 50% : 6.5px au lieu de 13px)
     if (sleepEnabled) {
       final aStart = MizwalaCalculator.angleFromTop(sleepBedtime, times.dhuhr);
       final aEnd = MizwalaCalculator.angleFromTop(sleepWakeup, times.dhuhr);

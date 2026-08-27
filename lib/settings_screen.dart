@@ -1,3 +1,4 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -5,7 +6,8 @@ import 'mizwala_dial.dart';
 import 'notification_service.dart';
 import 'prayer_times.dart';
 
-const MethodChannel _settingsWidgetChannel = MethodChannel('com.mizwala.mizwala/widget');
+const MethodChannel _settingsWidgetChannel =
+    MethodChannel('com.mizwala.mizwala/widget');
 
 Future<void> _notifyWidgetFromSettings() async {
   try {
@@ -39,6 +41,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
   int _wakeupHour = 6;
   int _wakeupMinute = 30;
 
+  // Sonnerie personnalisée
+  String? _customSoundPath;
+  String? _customSoundName;
+  bool _isPlayingSound = false;
+
   // Horaires du jour pour l'affichage
   late PrayerTimes _todayTimes;
 
@@ -49,6 +56,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _todayTimes =
         MizwalaCalculator.compute(shifted.year, shifted.month, shifted.day);
     _loadPrefs();
+  }
+
+  @override
+  void dispose() {
+    NotificationService.stopAlarmSound();
+    super.dispose();
   }
 
   Future<void> _loadPrefs() async {
@@ -65,6 +78,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _bedtimeMinute = prefs.getInt(kPrefSleepBedtimeM) ?? 0;
       _wakeupHour = prefs.getInt(kPrefSleepWakeupH) ?? 6;
       _wakeupMinute = prefs.getInt(kPrefSleepWakeupM) ?? 30;
+      _customSoundPath = prefs.getString(kPrefCustomSoundPath);
+      _customSoundName = prefs.getString(kPrefCustomSoundName);
       _loading = false;
     });
   }
@@ -82,6 +97,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await prefs.setInt(kPrefSleepWakeupH, _wakeupHour);
     await prefs.setInt(kPrefSleepWakeupM, _wakeupMinute);
 
+    if (_customSoundPath != null) {
+      await prefs.setString(kPrefCustomSoundPath, _customSoundPath!);
+      await prefs.setString(kPrefCustomSoundName, _customSoundName ?? 'Fichier audio');
+    } else {
+      await prefs.remove(kPrefCustomSoundPath);
+      await prefs.remove(kPrefCustomSoundName);
+    }
+
     await NotificationService.reschedule(_todayTimes);
     await _notifyWidgetFromSettings();
     setState(() => _dirty = false);
@@ -89,7 +112,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text(
-            'Réglages sauvegardés avec succès',
+            'Réglages et sonnerie sauvegardés avec succès',
             style: TextStyle(
               color: Colors.black,
               fontWeight: FontWeight.w600,
@@ -101,6 +124,43 @@ class _SettingsScreenState extends State<SettingsScreen> {
           duration: const Duration(seconds: 2),
         ),
       );
+    }
+  }
+
+  Future<void> _pickAudioFile() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['mp3', 'wav', 'm4a', 'mp4', 'aac', 'ogg'],
+      );
+
+      if (result != null && result.files.single.path != null) {
+        final path = result.files.single.path!;
+        final name = result.files.single.name;
+
+        setState(() {
+          _customSoundPath = path;
+          _customSoundName = name;
+          _dirty = true;
+        });
+
+        // Lecture immédiate pour confirmation
+        _togglePlayPreview();
+      }
+    } catch (e) {
+      debugPrint('Error picking audio file: $e');
+    }
+  }
+
+  Future<void> _togglePlayPreview() async {
+    if (_isPlayingSound) {
+      await NotificationService.stopAlarmSound();
+      setState(() => _isPlayingSound = false);
+    } else {
+      if (_customSoundPath != null) {
+        setState(() => _isPlayingSound = true);
+        await NotificationService.playCustomAlarmSound(_customSoundPath);
+      }
     }
   }
 
@@ -206,6 +266,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
           : ListView(
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
               children: [
+                _sectionTitle('Sonnerie de l\'Alarme & Adhan'),
+                const SizedBox(height: 8),
+                _soundPickerCard(),
+                const SizedBox(height: 22),
                 _sectionTitle('Sommeil & Repos'),
                 const SizedBox(height: 8),
                 _sleepSection(),
@@ -238,6 +302,126 @@ class _SettingsScreenState extends State<SettingsScreen> {
           letterSpacing: 0.08,
         ),
       );
+
+  Widget _soundPickerCard() {
+    final hasCustom = _customSoundPath != null && _customSoundPath!.isNotEmpty;
+    final soundTitle = hasCustom
+        ? (_customSoundName ?? 'Fichier audio personnalisé')
+        : 'Sonnerie système par défaut';
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0x0FFFFFFF),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: MizwalaTheme.glassBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: MizwalaTheme.amber.withOpacity(0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.audiotrack,
+                  color: MizwalaTheme.amber,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      soundTitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      hasCustom
+                          ? 'Fichier audio chargé (.mp3, .wav, .m4a)'
+                          : 'Cliquez ci-dessous pour choisir votre sonnerie ou Adhan',
+                      style: const TextStyle(
+                        color: MizwalaTheme.label2,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: _pickAudioFile,
+                  icon: const Icon(Icons.folder_open, size: 16),
+                  label: Text(
+                    hasCustom ? 'Changer de fichier' : 'Choisir un MP3 / WAV',
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0x1AFFFFFF),
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(vertical: 11),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: const BorderSide(color: MizwalaTheme.glassBorder),
+                    ),
+                  ),
+                ),
+              ),
+              if (hasCustom) ...[
+                const SizedBox(width: 8),
+                IconButton(
+                  onPressed: _togglePlayPreview,
+                  icon: Icon(
+                    _isPlayingSound ? Icons.stop_circle : Icons.play_circle_fill,
+                    color: MizwalaTheme.amber,
+                    size: 32,
+                  ),
+                  tooltip: _isPlayingSound ? 'Arrêter' : 'Écouter',
+                ),
+                IconButton(
+                  onPressed: () {
+                    NotificationService.stopAlarmSound();
+                    setState(() {
+                      _customSoundPath = null;
+                      _customSoundName = null;
+                      _isPlayingSound = false;
+                      _dirty = true;
+                    });
+                  },
+                  icon: const Icon(
+                    Icons.delete_outline,
+                    color: MizwalaTheme.label3,
+                    size: 22,
+                  ),
+                  tooltip: 'Réinitialiser au son par défaut',
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _sleepSection() {
     final bedtimeStr =
@@ -297,7 +481,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           horizontal: 14, vertical: 12),
                       decoration: BoxDecoration(
                         color: const Color(0x14FFFFFF),
-                        border: Border.all(color: MizwalaTheme.indigo.withOpacity(0.4)),
+                        border: Border.all(
+                            color: MizwalaTheme.indigo.withOpacity(0.4)),
                         borderRadius: BorderRadius.circular(14),
                       ),
                       child: Column(
@@ -336,7 +521,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           horizontal: 14, vertical: 12),
                       decoration: BoxDecoration(
                         color: const Color(0x14FFFFFF),
-                        border: Border.all(color: MizwalaTheme.indigo.withOpacity(0.4)),
+                        border: Border.all(
+                            color: MizwalaTheme.indigo.withOpacity(0.4)),
                         borderRadius: BorderRadius.circular(14),
                       ),
                       child: Column(
@@ -398,7 +584,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 SizedBox(height: 2),
                 Text(
-                  'Déclenche une notification immédiate pour vérifier l\'alarme',
+                  'Déclenche la notification et joue votre sonnerie / Adhan',
                   style: TextStyle(
                     color: MizwalaTheme.label2,
                     fontSize: 11.5,
@@ -414,7 +600,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text('Notification de test envoyée !'),
+                    content: Text('Test d\'alarme et sonnerie déclenché !'),
                     duration: Duration(seconds: 2),
                   ),
                 );
@@ -582,7 +768,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
       child: const Text(
         'Les horaires sont calculés localement pour Marrakech (31.63°N / 7.98°O), '
-        'UTC+1 fixe, méthode malikite. Les alarmes et notifications sont programmées exactement pour vos prières.',
+        'UTC+1 fixe, méthode malikite. Les alarmes et notifications jouent la sonnerie choisie au moment exact de vos prières.',
         style: TextStyle(
           color: MizwalaTheme.label3,
           fontSize: 12.5,

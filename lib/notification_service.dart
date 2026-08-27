@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:io';
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -9,6 +11,8 @@ import 'prayer_times.dart';
 /// Clés des préférences pour les réglages de notification.
 const kPrefPrefix = 'notif_enabled_';
 const kPrefDelay = 'notif_delay_minutes';
+const kPrefCustomSoundPath = 'custom_sound_path';
+const kPrefCustomSoundName = 'custom_sound_name';
 
 class PrayerNotificationItem {
   final String key;
@@ -33,6 +37,7 @@ class _DaySchedule {
 
 class NotificationService {
   static final _plugin = FlutterLocalNotificationsPlugin();
+  static final AudioPlayer _audioPlayer = AudioPlayer();
   static bool _initialized = false;
 
   static const String channelId = 'mizwala_prayers_v2';
@@ -84,10 +89,33 @@ class NotificationService {
     }
   }
 
-  /// Déclenche une notification de test immédiate
+  /// Joue le son d'alarme personnalisé ou par défaut
+  static Future<void> playCustomAlarmSound(String? path) async {
+    try {
+      await stopAlarmSound();
+      if (path != null && path.isNotEmpty && File(path).existsSync()) {
+        await _audioPlayer.setVolume(1.0);
+        await _audioPlayer.play(DeviceFileSource(path));
+      }
+    } catch (e) {
+      debugPrint('Error playing custom alarm sound: $e');
+    }
+  }
+
+  /// Arrête la lecture audio
+  static Future<void> stopAlarmSound() async {
+    try {
+      await _audioPlayer.stop();
+    } catch (_) {}
+  }
+
+  /// Déclenche une notification de test immédiate avec sonnerie
   static Future<void> sendTestNotification() async {
     try {
       await init();
+      final prefs = await SharedPreferences.getInstance();
+      final customPath = prefs.getString(kPrefCustomSoundPath);
+
       const details = NotificationDetails(
         android: AndroidNotificationDetails(
           channelId,
@@ -110,9 +138,13 @@ class NotificationService {
       await _plugin.show(
         9999,
         '🕌 Mizwala — Test d\'alarme',
-        'Les notifications et rappels de prière sont activés avec succès !',
+        'L\'alarme et les notifications de prière fonctionnent avec succès !',
         details,
       );
+
+      if (customPath != null && customPath.isNotEmpty) {
+        await playCustomAlarmSound(customPath);
+      }
     } catch (e) {
       debugPrint('Error sending test notification: $e');
     }

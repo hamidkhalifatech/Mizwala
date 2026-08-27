@@ -325,7 +325,22 @@ class MizwalaWidgetProvider : AppWidgetProvider() {
         }
         canvas.drawCircle(cx, cy, r, ringPaint)
 
-        // 2. Arc de Sommeil Indigo (épaisseur diminuée de 50% : 6.5px)
+        // 2. Arc Diurne Fixe (Lever du Soleil -> Maghrib en Bleu Nuit #1E3A5F)
+        val aSunrise = angleFromTop(times.sunrise, times.dhuhr)
+        val aMaghrib = angleFromTop(times.maghrib, times.dhuhr)
+        val daySweep = ((aMaghrib - aSunrise + 360.0) % 360.0).toFloat()
+        val dayStartAngle = (aSunrise - 90.0).toFloat()
+
+        val dayArcPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.parseColor("#1E3A5F")
+            style = Paint.Style.STROKE
+            strokeWidth = 6.5f * scale
+            strokeCap = Paint.Cap.ROUND
+        }
+        val dayOval = RectF(cx - r, cy - r, cx + r, cy + r)
+        canvas.drawArc(dayOval, dayStartAngle, daySweep, false, dayArcPaint)
+
+        // 3. Arc de Sommeil Indigo (épaisseur diminuée de 50% : 6.5px)
         if (sleepEnabled) {
             val aStart = angleFromTop(sleepBedtime, times.dhuhr)
             val aEnd = angleFromTop(sleepWakeup, times.dhuhr)
