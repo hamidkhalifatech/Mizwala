@@ -174,19 +174,19 @@ class MizwalaDial extends StatelessWidget {
                   const SizedBox(height: 3),
                   Container(
                     padding: EdgeInsets.symmetric(
-                        horizontal: 8 * scale, vertical: 2 * scale),
+                        horizontal: 9 * scale, vertical: 2.5 * scale),
                     decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.35),
+                      color: Colors.black.withOpacity(0.40),
                       borderRadius: BorderRadius.circular(100),
                       border: Border.all(
-                          color: const Color(0x4D5E5CE6), width: 0.8),
+                          color: MizwalaTheme.amber.withOpacity(0.60), width: 1.0),
                     ),
                     child: Text(
                       sleepCountdownBadge,
                       style: TextStyle(
-                        fontSize: 9.5 * scale,
+                        fontSize: 10.0 * scale,
                         fontWeight: FontWeight.w700,
-                        color: const Color(0xFFC7D2FE), // Violet clair lisible
+                        color: MizwalaTheme.amber, // Orange vif très visible
                         letterSpacing: 0.02,
                         fontFeatures: const [FontFeature.tabularFigures()],
                         fontFamily: '-apple-system',

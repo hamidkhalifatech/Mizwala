@@ -530,7 +530,7 @@ class MizwalaWidgetProvider : AppWidgetProvider() {
             }
 
             val cdTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = Color.parseColor("#C7D2FE")
+                color = Color.parseColor("#FF9F0A")
                 textSize = 8.5f * scale
                 typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
                 textAlign = Paint.Align.CENTER
@@ -538,19 +538,19 @@ class MizwalaWidgetProvider : AppWidgetProvider() {
             val cdBounds = Rect()
             cdTextPaint.getTextBounds(countdownStr, 0, countdownStr.length, cdBounds)
 
-            val cdPillW = cdBounds.width() + 10f * scale
+            val cdPillW = cdBounds.width() + 12f * scale
             val cdPillH = cdBounds.height() + 5f * scale
             val cdPillY = cy + 47f * scale
             val cdPillRect = RectF(cx - cdPillW / 2f, cdPillY - cdPillH / 2f, cx + cdPillW / 2f, cdPillY + cdPillH / 2f)
 
             val cdBgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = Color.parseColor("#59000000")
+                color = Color.parseColor("#66000000")
                 style = Paint.Style.FILL
             }
             val cdStrokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = Color.parseColor("#4D5E5CE6")
+                color = Color.parseColor("#99FF9F0A")
                 style = Paint.Style.STROKE
-                strokeWidth = 0.8f * scale
+                strokeWidth = 1.0f * scale
             }
             canvas.drawRoundRect(cdPillRect, 100f, 100f, cdBgPaint)
             canvas.drawRoundRect(cdPillRect, 100f, 100f, cdStrokePaint)
