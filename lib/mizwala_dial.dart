@@ -34,7 +34,7 @@ class MizwalaDial extends StatelessWidget {
     super.key,
     required this.times,
     required this.currentHourDecimal,
-    this.size = 320,
+    this.size = 340,
     this.weatherData,
     this.sleepBedtime = 23.0,
     this.sleepWakeup = 6.5,
@@ -46,7 +46,7 @@ class MizwalaDial extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scale = size / 340.0;
-    final discSize = 150.0 * scale;
+    final discSize = 160.0 * scale;
 
     // Couleur du ciel dynamique
     final skyColor = WeatherService.computeSkyColor(
@@ -73,7 +73,7 @@ class MizwalaDial extends StatelessWidget {
       child: Stack(
         alignment: Alignment.center,
         children: [
-          // 1. Anneau interactif (prières, sommeil, soleil/lune)
+          // 1. Anneau interactif (prières, sommeil, durée sommeil, soleil/lune)
           _InteractiveDialRing(
             size: size,
             times: times,
@@ -96,9 +96,9 @@ class MizwalaDial extends StatelessWidget {
               color: skyColor,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.4),
-                  blurRadius: 20 * scale,
-                  offset: const Offset(0, 4),
+                  color: Colors.black.withOpacity(0.45),
+                  blurRadius: 24 * scale,
+                  offset: const Offset(0, 5),
                 ),
               ],
             ),
@@ -113,23 +113,23 @@ class MizwalaDial extends StatelessWidget {
                 Text(
                   clockStr,
                   style: TextStyle(
-                    fontSize: 36 * scale,
+                    fontSize: 38 * scale,
                     fontWeight: FontWeight.w600,
                     color: Colors.white,
-                    letterSpacing: -0.02 * (36 * scale),
+                    letterSpacing: -0.02 * (38 * scale),
                     height: 1.05,
                     fontFeatures: const [FontFeature.tabularFigures()],
                     fontFamily: '-apple-system',
                   ),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 3),
                 // Température actuelle
                 Text(
                   tempStr,
                   style: TextStyle(
-                    fontSize: 15 * scale,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.white.withOpacity(0.85),
+                    fontSize: 16 * scale,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white.withOpacity(0.90),
                     fontFeatures: const [FontFeature.tabularFigures()],
                     fontFamily: '-apple-system',
                   ),
@@ -138,8 +138,8 @@ class MizwalaDial extends StatelessWidget {
                 Text(
                   hlStr,
                   style: TextStyle(
-                    fontSize: 10 * scale,
-                    fontWeight: FontWeight.w400,
+                    fontSize: 11 * scale,
+                    fontWeight: FontWeight.w500,
                     color: MizwalaTheme.label3,
                     fontFeatures: const [FontFeature.tabularFigures()],
                     fontFamily: '-apple-system',
@@ -183,7 +183,7 @@ class MizwalaDial extends StatelessWidget {
 
     return Icon(
       iconData,
-      size: 24 * scale,
+      size: 26 * scale,
       color: iconColor,
     );
   }
@@ -237,7 +237,7 @@ class _InteractiveDialRingState extends State<_InteractiveDialRing> {
     final pStart = pt(aStart);
     final pEnd = pt(aEnd);
 
-    final hitRadius = 24.0 * scale;
+    final hitRadius = 26.0 * scale;
 
     if ((localPos - pStart).distance <= hitRadius) {
       setState(() => _dragTarget = 'start');
@@ -321,9 +321,10 @@ class _AppleFinalDialPainter extends CustomPainter {
     final center = Offset(cx, cy);
     final r = 133.0 * scale;
 
-    Offset pt(double angleDeg) {
+    Offset pt(double angleDeg, [double radiusOffset = 0.0]) {
       final rad = angleDeg * math.pi / 180.0;
-      return Offset(cx + r * math.sin(rad), cy - r * math.cos(rad));
+      final currentR = r + radiusOffset;
+      return Offset(cx + currentR * math.sin(rad), cy - currentR * math.cos(rad));
     }
 
     // 1. Cercle guide subtil
@@ -353,6 +354,51 @@ class _AppleFinalDialPainter extends CustomPainter {
         sweepDeg * math.pi / 180.0,
         false,
         sleepArcPaint,
+      );
+
+      // Calcul de la durée de sommeil (heures et minutes)
+      final sleepDurationDec = (sleepWakeup - sleepBedtime + 24.0) % 24.0;
+      final sleepHours = sleepDurationDec.floor();
+      final sleepMins = ((sleepDurationDec - sleepHours) * 60).round();
+      final durationText = sleepMins > 0 ? '${sleepHours}h${sleepMins.toString().padLeft(2, '0')}' : '${sleepHours}h';
+
+      // Affichage de la durée au milieu de l'arc de sommeil
+      final aMid = (aStart + (sweepDeg / 2.0)) % 360.0;
+      final badgePos = pt(aMid, -20.0 * scale);
+
+      // Pastille de fond pour la durée
+      final badgePainter = TextPainter(
+        text: TextSpan(
+          text: durationText,
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 10.5 * scale,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.02,
+            fontFamily: '-apple-system',
+          ),
+        ),
+        textAlign: TextAlign.center,
+        textDirection: TextDirection.ltr,
+      )..layout();
+
+      final pillRect = RRect.fromRectAndRadius(
+        Rect.fromCenter(
+          center: badgePos,
+          width: badgePainter.width + 12 * scale,
+          height: badgePainter.height + 6 * scale,
+        ),
+        Radius.circular(100 * scale),
+      );
+
+      canvas.drawRRect(
+        pillRect,
+        Paint()..color = MizwalaTheme.indigo.withOpacity(0.85),
+      );
+
+      badgePainter.paint(
+        canvas,
+        badgePos - Offset(badgePainter.width / 2, badgePainter.height / 2),
       );
 
       // Poignées de Sommeil

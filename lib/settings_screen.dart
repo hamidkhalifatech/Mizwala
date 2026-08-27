@@ -79,7 +79,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text(
-            'Réglages sauvegardés',
+            'Réglages sauvegardés avec succès',
             style: TextStyle(
               color: Colors.black,
               fontWeight: FontWeight.w600,
@@ -146,6 +146,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  String _calculateSleepDuration() {
+    final bedDec = _bedtimeHour + _bedtimeMinute / 60.0;
+    final wakeDec = _wakeupHour + _wakeupMinute / 60.0;
+    final durationDec = (wakeDec - bedDec + 24.0) % 24.0;
+    final h = durationDec.floor();
+    final m = ((durationDec - h) * 60).round();
+    return m > 0 ? '${h}h ${m}min' : '${h}h';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -162,8 +171,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           'Réglages',
           style: TextStyle(
             color: MizwalaTheme.label1,
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
           ),
         ),
         actions: [
@@ -174,8 +183,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 'Enregistrer',
                 style: TextStyle(
                   color: MizwalaTheme.amber,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ),
@@ -185,16 +194,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ? const Center(
               child: CircularProgressIndicator(color: MizwalaTheme.amber))
           : ListView(
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
               children: [
                 _sectionTitle('Sommeil & Repos'),
                 const SizedBox(height: 8),
                 _sleepSection(),
-                const SizedBox(height: 20),
-                _sectionTitle('Notifications des Prières'),
-                const SizedBox(height: 4),
+                const SizedBox(height: 22),
+                _sectionTitle('Notifications & Alarmes'),
+                const SizedBox(height: 6),
+                _testNotificationCard(),
+                const SizedBox(height: 12),
                 _delaySelector(),
-                const SizedBox(height: 16),
+                const SizedBox(height: 18),
                 _sectionTitle('Prières'),
                 const SizedBox(height: 8),
                 ..._prayerToggles(),
@@ -212,8 +223,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         t.toUpperCase(),
         style: const TextStyle(
           color: MizwalaTheme.label2,
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
+          fontSize: 11.5,
+          fontWeight: FontWeight.w700,
           letterSpacing: 0.08,
         ),
       );
@@ -223,12 +234,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
         '${_bedtimeHour.toString().padLeft(2, '0')}:${_bedtimeMinute.toString().padLeft(2, '0')}';
     final wakeupStr =
         '${_wakeupHour.toString().padLeft(2, '0')}:${_wakeupMinute.toString().padLeft(2, '0')}';
+    final durationStr = _calculateSleepDuration();
 
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: const Color(0x0FFFFFFF),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(color: MizwalaTheme.glassBorder),
       ),
       child: Column(
@@ -245,15 +257,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
               'Afficher le Sommeil sur le cadran',
               style: TextStyle(
                 color: MizwalaTheme.label1,
-                fontSize: 14,
+                fontSize: 15,
                 fontWeight: FontWeight.w600,
               ),
             ),
-            subtitle: const Text(
-              'Arc indigo réglable sur le cycle 24h',
-              style: TextStyle(
-                color: MizwalaTheme.label2,
-                fontSize: 12.5,
+            subtitle: Text(
+              'Durée programmée : $durationStr',
+              style: const TextStyle(
+                color: MizwalaTheme.indigo,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
               ),
             ),
             secondary: Icon(
@@ -262,20 +275,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
           if (_sleepEnabled) ...[
-            const Divider(color: Color(0x1AFFFFFF), height: 16),
+            const Divider(color: Color(0x1AFFFFFF), height: 18),
             Row(
               children: [
                 Expanded(
                   child: InkWell(
                     onTap: _pickBedtime,
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(14),
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 10),
+                          horizontal: 14, vertical: 12),
                       decoration: BoxDecoration(
                         color: const Color(0x14FFFFFF),
                         border: Border.all(color: MizwalaTheme.indigo.withOpacity(0.4)),
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(14),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -284,17 +297,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             'Coucher',
                             style: TextStyle(
                               color: MizwalaTheme.indigo,
-                              fontSize: 11,
+                              fontSize: 12,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
-                          const SizedBox(height: 3),
+                          const SizedBox(height: 4),
                           Text(
                             bedtimeStr,
                             style: const TextStyle(
                               color: Colors.white,
-                              fontSize: 19,
-                              fontWeight: FontWeight.w600,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w700,
                               fontFeatures: [FontFeature.tabularFigures()],
                             ),
                           ),
@@ -307,14 +320,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 Expanded(
                   child: InkWell(
                     onTap: _pickWakeup,
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(14),
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 10),
+                          horizontal: 14, vertical: 12),
                       decoration: BoxDecoration(
                         color: const Color(0x14FFFFFF),
                         border: Border.all(color: MizwalaTheme.indigo.withOpacity(0.4)),
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(14),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -323,17 +336,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             'Réveil',
                             style: TextStyle(
                               color: MizwalaTheme.indigo,
-                              fontSize: 11,
+                              fontSize: 12,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
-                          const SizedBox(height: 3),
+                          const SizedBox(height: 4),
                           Text(
                             wakeupStr,
                             style: const TextStyle(
                               color: Colors.white,
-                              fontSize: 19,
-                              fontWeight: FontWeight.w600,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w700,
                               fontFeatures: [FontFeature.tabularFigures()],
                             ),
                           ),
@@ -350,18 +363,82 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  Widget _testNotificationCard() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: MizwalaTheme.amber.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: MizwalaTheme.amber.withOpacity(0.35)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Tester la sonnerie & notification',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                SizedBox(height: 2),
+                Text(
+                  'Déclenche une notification immédiate pour vérifier l\'alarme',
+                  style: TextStyle(
+                    color: MizwalaTheme.label2,
+                    fontSize: 11.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          ElevatedButton(
+            onPressed: () async {
+              await NotificationService.sendTestNotification();
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Notification de test envoyée !'),
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: MizwalaTheme.amber,
+              foregroundColor: Colors.black,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
+            ),
+            child: const Text(
+              'Tester',
+              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _delaySelector() {
     const delays = [0, 5, 10, 15, 20];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Padding(
-          padding: EdgeInsets.only(top: 6, bottom: 8),
+          padding: EdgeInsets.only(top: 4, bottom: 8),
           child: Text(
             'Préavis avant chaque prière',
             style: TextStyle(
               color: MizwalaTheme.label2,
-              fontSize: 13,
+              fontSize: 13.5,
             ),
           ),
         ),
@@ -377,7 +454,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
                 padding: const EdgeInsets.symmetric(
-                    horizontal: 14, vertical: 8),
+                    horizontal: 15, vertical: 8),
                 decoration: BoxDecoration(
                   color: selected
                       ? MizwalaTheme.amber
@@ -393,7 +470,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   d == 0 ? 'À l\'heure' : '$d min',
                   style: TextStyle(
                     color: selected ? Colors.black : MizwalaTheme.label1,
-                    fontSize: 12.5,
+                    fontSize: 13,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -420,7 +497,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
         decoration: BoxDecoration(
           color: const Color(0x0DFFFFFF),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(18),
           border: Border.all(color: MizwalaTheme.glassBorder),
         ),
         child: SwitchListTile(
@@ -435,7 +512,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             label,
             style: TextStyle(
               color: isOn ? Colors.white : MizwalaTheme.label3,
-              fontSize: 15,
+              fontSize: 15.5,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -443,7 +520,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             time,
             style: TextStyle(
               color: isOn ? itemColor : MizwalaTheme.label3,
-              fontSize: 14,
+              fontSize: 14.5,
               fontWeight: FontWeight.w500,
               fontFeatures: const [FontFeature.tabularFigures()],
             ),
@@ -453,7 +530,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ? Icons.notifications_active_outlined
                 : Icons.notifications_off_outlined,
             color: isOn ? itemColor : MizwalaTheme.label3,
-            size: 20,
+            size: 22,
           ),
         ),
       );
@@ -468,15 +545,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
         style: ElevatedButton.styleFrom(
           backgroundColor: MizwalaTheme.amber,
           foregroundColor: Colors.black,
-          padding: const EdgeInsets.symmetric(vertical: 14),
+          padding: const EdgeInsets.symmetric(vertical: 15),
           elevation: 0,
           shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
         ),
         child: const Text(
           'Sauvegarder les réglages',
           style: TextStyle(
-            fontSize: 14,
+            fontSize: 15,
             fontWeight: FontWeight.w700,
             letterSpacing: 0.02,
           ),
@@ -487,15 +564,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Widget _infoCard() {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: const Color(0x0AFFFFFF),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(color: MizwalaTheme.glassBorder),
       ),
       child: const Text(
         'Les horaires sont calculés localement pour Marrakech (31.63°N / 7.98°O), '
-        'UTC+1 fixe, méthode malikite. La météo temps réel est actualisée automatiquement.',
+        'UTC+1 fixe, méthode malikite. Les alarmes et notifications sont programmées exactement pour vos prières.',
         style: TextStyle(
           color: MizwalaTheme.label3,
           fontSize: 12.5,

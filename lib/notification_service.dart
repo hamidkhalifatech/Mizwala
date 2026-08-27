@@ -35,6 +35,9 @@ class NotificationService {
   static final _plugin = FlutterLocalNotificationsPlugin();
   static bool _initialized = false;
 
+  static const String channelId = 'mizwala_prayers_v2';
+  static const String channelName = 'Horaires de Prière Mizwala';
+
   static Future<void> init() async {
     if (_initialized) return;
     try {
@@ -53,20 +56,27 @@ class NotificationService {
       );
       await _plugin.initialize(settings);
 
-      // Créer le canal Android
-      const channel = AndroidNotificationChannel(
-        'mizwala_prayers',
-        'Horaires de prière',
-        description: 'Rappels avant chaque prière',
-        importance: Importance.high,
-        playSound: true,
-        enableLights: true,
-        ledColor: Color(0xFFC9A24B),
-      );
-      await _plugin
-          .resolvePlatformSpecificImplementation<
-              AndroidFlutterLocalNotificationsPlugin>()
-          ?.createNotificationChannel(channel);
+      // Créer le canal Android haute priorité avec son et vibration
+      final androidImpl = _plugin.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>();
+
+      if (androidImpl != null) {
+        // Demande de permission Android 13+ (POST_NOTIFICATIONS)
+        await androidImpl.requestNotificationsPermission();
+        await androidImpl.requestExactAlarmsPermission();
+
+        const channel = AndroidNotificationChannel(
+          channelId,
+          channelName,
+          description: 'Rappels et alertes avant chaque prière',
+          importance: Importance.max,
+          playSound: true,
+          enableVibration: true,
+          enableLights: true,
+          ledColor: Color(0xFFFF9F0A),
+        );
+        await androidImpl.createNotificationChannel(channel);
+      }
 
       _initialized = true;
     } catch (e) {
@@ -74,9 +84,44 @@ class NotificationService {
     }
   }
 
+  /// Déclenche une notification de test immédiate
+  static Future<void> sendTestNotification() async {
+    try {
+      await init();
+      const details = NotificationDetails(
+        android: AndroidNotificationDetails(
+          channelId,
+          channelName,
+          channelDescription: 'Rappels et alertes avant chaque prière',
+          importance: Importance.max,
+          priority: Priority.max,
+          playSound: true,
+          enableVibration: true,
+          color: Color(0xFFFF9F0A),
+          icon: '@mipmap/ic_launcher',
+        ),
+        iOS: DarwinNotificationDetails(
+          presentAlert: true,
+          presentBadge: true,
+          presentSound: true,
+        ),
+      );
+
+      await _plugin.show(
+        9999,
+        '🕌 Mizwala — Test d\'alarme',
+        'Les notifications et rappels de prière sont activés avec succès !',
+        details,
+      );
+    } catch (e) {
+      debugPrint('Error sending test notification: $e');
+    }
+  }
+
   /// Replanifie toutes les notifications pour aujourd'hui et demain.
   static Future<void> reschedule(PrayerTimes todayTimes) async {
     try {
+      await init();
       await _plugin.cancelAll();
 
       final prefs = await SharedPreferences.getInstance();
@@ -128,17 +173,19 @@ class NotificationService {
           final tzTime = tz.TZDateTime.from(notifUtc, tz.UTC);
           final timeStr = MizwalaCalculator.format(prayerDecimal);
 
-          final details = NotificationDetails(
+          const details = NotificationDetails(
             android: AndroidNotificationDetails(
-              'mizwala_prayers',
-              'Horaires de prière',
-              channelDescription: 'Rappels avant chaque prière',
-              importance: Importance.high,
-              priority: Priority.high,
-              color: const Color(0xFFC9A24B),
+              channelId,
+              channelName,
+              channelDescription: 'Rappels et alertes avant chaque prière',
+              importance: Importance.max,
+              priority: Priority.max,
+              playSound: true,
+              enableVibration: true,
+              color: Color(0xFFFF9F0A),
               icon: '@mipmap/ic_launcher',
             ),
-            iOS: const DarwinNotificationDetails(
+            iOS: DarwinNotificationDetails(
               presentAlert: true,
               presentBadge: true,
               presentSound: true,
@@ -150,8 +197,8 @@ class NotificationService {
               notifId++,
               '🕌 $label — $timeStr',
               delayMin == 0
-                  ? 'C\'est l\'heure de la prière'
-                  : 'Dans $delayMin min',
+                  ? 'C\'est l\'heure de la prière à Marrakech'
+                  : 'Prière dans $delayMin min',
               tzTime,
               details,
               androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
@@ -165,8 +212,8 @@ class NotificationService {
                 notifId++,
                 '🕌 $label — $timeStr',
                 delayMin == 0
-                    ? 'C\'est l\'heure de la prière'
-                    : 'Dans $delayMin min',
+                    ? 'C\'est l\'heure de la prière à Marrakech'
+                    : 'Prière dans $delayMin min',
                 tzTime,
                 details,
                 androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
@@ -184,12 +231,19 @@ class NotificationService {
     }
   }
 
-  /// Demander la permission iOS (à appeler au premier lancement).
+  /// Demander les permissions au premier lancement.
   static Future<bool> requestPermission() async {
     try {
-      final impl = _plugin.resolvePlatformSpecificImplementation<
+      final androidImpl = _plugin.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>();
+      if (androidImpl != null) {
+        await androidImpl.requestNotificationsPermission();
+        await androidImpl.requestExactAlarmsPermission();
+      }
+
+      final iosImpl = _plugin.resolvePlatformSpecificImplementation<
           IOSFlutterLocalNotificationsPlugin>();
-      final result = await impl?.requestPermissions(
+      final result = await iosImpl?.requestPermissions(
         alert: true,
         badge: true,
         sound: true,

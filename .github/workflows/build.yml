@@ -39,8 +39,17 @@ jobs:
           mkdir -p mizwala_app/assets/icon mizwala_app/assets/splash
           cp mizwala_src/assets/icon/mizwala_icon.png   mizwala_app/assets/icon/mizwala_icon.png
           cp mizwala_src/assets/splash/mizwala_splash.png mizwala_app/assets/splash/mizwala_splash.png
+          
+          # Android Manifest, Res & Kotlin Widget files
           cp mizwala_src/android/app/src/main/AndroidManifest.xml \
              mizwala_app/android/app/src/main/AndroidManifest.xml
+          mkdir -p mizwala_app/android/app/src/main/res/xml mizwala_app/android/app/src/main/res/layout mizwala_app/android/app/src/main/res/drawable mizwala_app/android/app/src/main/res/values
+          cp -r mizwala_src/android/app/src/main/res/xml/* mizwala_app/android/app/src/main/res/xml/ 2>/dev/null || true
+          cp -r mizwala_src/android/app/src/main/res/layout/* mizwala_app/android/app/src/main/res/layout/ 2>/dev/null || true
+          cp -r mizwala_src/android/app/src/main/res/drawable/* mizwala_app/android/app/src/main/res/drawable/ 2>/dev/null || true
+          cp -r mizwala_src/android/app/src/main/res/values/* mizwala_app/android/app/src/main/res/values/ 2>/dev/null || true
+          mkdir -p mizwala_app/android/app/src/main/kotlin/com/mizwala/mizwala
+          cp -r mizwala_src/android/app/src/main/kotlin/com/mizwala/mizwala/* mizwala_app/android/app/src/main/kotlin/com/mizwala/mizwala/ 2>/dev/null || true
 
       - name: Upgrade Kotlin version for compatibility
         working-directory: mizwala_app

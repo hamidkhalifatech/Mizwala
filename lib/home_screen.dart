@@ -235,66 +235,69 @@ class _MizwalaHomeScreenState extends State<MizwalaHomeScreen> {
   Widget build(BuildContext context) {
     final nextPrayer = _getNextPrayer();
     final screenWidth = MediaQuery.of(context).size.width;
-    final cardWidth = (screenWidth - 32).clamp(300.0, 360.0);
-    final dialSize = (cardWidth - 40).clamp(260.0, 320.0);
+    final dialSize = (screenWidth - 48).clamp(280.0, 420.0);
 
     return Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Container(
-              width: cardWidth,
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: MizwalaTheme.card,
-                borderRadius: BorderRadius.circular(28),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.5),
-                    blurRadius: 40,
-                    offset: const Offset(0, 15),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  _buildHeader(),
-                  const SizedBox(height: 12),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _buildHeader(),
+              const SizedBox(height: 12),
 
-                  // Cadran central avec anneau interactif et disque météo
-                  MizwalaDial(
-                    times: _times,
-                    currentHourDecimal: _currentHourDecimal,
-                    size: dialSize,
-                    weatherData: _weatherData,
-                    sleepBedtime: _sleepBedtimeDecimal,
-                    sleepWakeup: _sleepWakeupDecimal,
-                    sleepEnabled: _sleepEnabled,
-                    onSleepBedtimeChanged: (val) {
-                      setState(() => _sleepBedtimeDecimal = val);
-                      _saveSleepPrefsDebounced();
-                    },
-                    onSleepWakeupChanged: (val) {
-                      setState(() => _sleepWakeupDecimal = val);
-                      _saveSleepPrefsDebounced();
-                    },
-                  ),
-
-                  const SizedBox(height: 14),
-                  _buildDateSelector(),
-                  const SizedBox(height: 16),
-                  _buildNextPrayerBanner(nextPrayer),
-                  const SizedBox(height: 14),
-                  _buildPrayerChips(nextPrayer.key),
-                  const SizedBox(height: 16),
-                  _buildBottomTabBar(),
-                ],
+              // Cadran central avec anneau interactif et disque météo agrandi
+              Container(
+                padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+                decoration: BoxDecoration(
+                  color: MizwalaTheme.card,
+                  borderRadius: BorderRadius.circular(28),
+                  border: Border.all(color: MizwalaTheme.glassBorder),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.4),
+                      blurRadius: 30,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    Center(
+                      child: MizwalaDial(
+                        times: _times,
+                        currentHourDecimal: _currentHourDecimal,
+                        size: dialSize,
+                        weatherData: _weatherData,
+                        sleepBedtime: _sleepBedtimeDecimal,
+                        sleepWakeup: _sleepWakeupDecimal,
+                        sleepEnabled: _sleepEnabled,
+                        onSleepBedtimeChanged: (val) {
+                          setState(() => _sleepBedtimeDecimal = val);
+                          _saveSleepPrefsDebounced();
+                        },
+                        onSleepWakeupChanged: (val) {
+                          setState(() => _sleepWakeupDecimal = val);
+                          _saveSleepPrefsDebounced();
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    _buildDateSelector(),
+                  ],
+                ),
               ),
-            ),
+
+              const SizedBox(height: 14),
+              _buildNextPrayerBanner(nextPrayer),
+              const SizedBox(height: 14),
+              _buildPrayerChips(nextPrayer.key),
+              const SizedBox(height: 16),
+              _buildBottomTabBar(),
+              const SizedBox(height: 10),
+            ],
           ),
         ),
       ),
@@ -313,7 +316,7 @@ class _MizwalaHomeScreenState extends State<MizwalaHomeScreen> {
               'Mizwala',
               style: TextStyle(
                 color: Colors.white,
-                fontSize: 26,
+                fontSize: 28,
                 fontWeight: FontWeight.w700,
                 letterSpacing: -0.02,
                 fontFamily: '-apple-system',
@@ -324,7 +327,7 @@ class _MizwalaHomeScreenState extends State<MizwalaHomeScreen> {
               'Marrakech',
               style: TextStyle(
                 color: MizwalaTheme.label2,
-                fontSize: 13,
+                fontSize: 14,
                 fontWeight: FontWeight.w400,
                 fontFamily: '-apple-system',
               ),
@@ -340,10 +343,10 @@ class _MizwalaHomeScreenState extends State<MizwalaHomeScreen> {
             _loadSleepPrefs();
             NotificationService.reschedule(_times);
           },
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(20),
           child: Container(
-            width: 36,
-            height: 36,
+            width: 40,
+            height: 40,
             decoration: BoxDecoration(
               color: const Color(0x14FFFFFF),
               shape: BoxShape.circle,
@@ -352,7 +355,7 @@ class _MizwalaHomeScreenState extends State<MizwalaHomeScreen> {
             child: const Icon(
               Icons.settings_outlined,
               color: MizwalaTheme.label2,
-              size: 18,
+              size: 20,
             ),
           ),
         ),
@@ -366,45 +369,53 @@ class _MizwalaHomeScreenState extends State<MizwalaHomeScreen> {
 
     return GestureDetector(
       onTap: _pickDate,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (_isManualDate) ...[
-            GestureDetector(
-              onTap: _resetToToday,
-              child: const Row(
-                children: [
-                  Icon(Icons.refresh, color: MizwalaTheme.amber, size: 13),
-                  SizedBox(width: 3),
-                  Text(
-                    'Aujourd\'hui',
-                    style: TextStyle(
-                      color: MizwalaTheme.amber,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        decoration: BoxDecoration(
+          color: const Color(0x0DFFFFFF),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: MizwalaTheme.glassBorder),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (_isManualDate) ...[
+              GestureDetector(
+                onTap: _resetToToday,
+                child: const Row(
+                  children: [
+                    Icon(Icons.refresh, color: MizwalaTheme.amber, size: 14),
+                    SizedBox(width: 4),
+                    Text(
+                      'Aujourd\'hui',
+                      style: TextStyle(
+                        color: MizwalaTheme.amber,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                  ),
-                  SizedBox(width: 8),
-                ],
+                    SizedBox(width: 10),
+                  ],
+                ),
+              ),
+            ],
+            Text(
+              dateStr,
+              style: TextStyle(
+                color: _isManualDate ? MizwalaTheme.amber : MizwalaTheme.label1,
+                fontSize: 13.5,
+                fontWeight: FontWeight.w500,
+                fontFamily: '-apple-system',
               ),
             ),
-          ],
-          Text(
-            dateStr,
-            style: TextStyle(
+            const SizedBox(width: 6),
+            Icon(
+              Icons.calendar_today_outlined,
+              size: 13,
               color: _isManualDate ? MizwalaTheme.amber : MizwalaTheme.label2,
-              fontSize: 13,
-              fontWeight: FontWeight.w400,
-              fontFamily: '-apple-system',
             ),
-          ),
-          const SizedBox(width: 4),
-          Icon(
-            Icons.calendar_today_outlined,
-            size: 12,
-            color: _isManualDate ? MizwalaTheme.amber : MizwalaTheme.label3,
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -420,10 +431,10 @@ class _MizwalaHomeScreenState extends State<MizwalaHomeScreen> {
     final accentColor = isDohr ? MizwalaTheme.amber : MizwalaTheme.teal;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
       decoration: BoxDecoration(
         color: const Color(0x0FFFFFFF),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(color: MizwalaTheme.glassBorder),
       ),
       child: Row(
@@ -436,24 +447,24 @@ class _MizwalaHomeScreenState extends State<MizwalaHomeScreen> {
                 'PROCHAINE PRIÈRE',
                 style: TextStyle(
                   color: MizwalaTheme.label2,
-                  fontSize: 11,
+                  fontSize: 11.5,
                   fontWeight: FontWeight.w600,
                   letterSpacing: 0.06,
                 ),
               ),
-              const SizedBox(height: 2),
+              const SizedBox(height: 3),
               Text(
                 next.label,
                 style: TextStyle(
                   color: accentColor,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ],
           ),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
             decoration: BoxDecoration(
               color: accentColor.withOpacity(0.20),
               borderRadius: BorderRadius.circular(100),
@@ -462,7 +473,7 @@ class _MizwalaHomeScreenState extends State<MizwalaHomeScreen> {
               diffStr,
               style: TextStyle(
                 color: accentColor,
-                fontSize: 12,
+                fontSize: 13,
                 fontWeight: FontWeight.w600,
                 fontFeatures: const [FontFeature.tabularFigures()],
               ),
@@ -474,14 +485,25 @@ class _MizwalaHomeScreenState extends State<MizwalaHomeScreen> {
   }
 
   Widget _buildPrayerChips(String nextKey) {
+    final sleepDurationDec = (_sleepWakeupDecimal - _sleepBedtimeDecimal + 24.0) % 24.0;
+    final sleepH = sleepDurationDec.floor();
+    final sleepM = ((sleepDurationDec - sleepH) * 60).round();
+    final sleepDurationLabel = sleepM > 0 ? '${sleepH}h$sleepM' : '${sleepH}h';
+
     final chips = [
-      ('fajr', 'Fajr', _times.fajr, MizwalaTheme.teal),
-      ('sunrise', 'Chourouk', _times.sunrise, MizwalaTheme.teal),
-      ('dhuhr', 'Dohr', _times.dhuhr, MizwalaTheme.amber),
-      ('asr', 'Asr', _times.asr, MizwalaTheme.teal),
-      ('maghrib', 'Maghrib', _times.maghrib, MizwalaTheme.teal),
-      ('isha', 'Icha', _times.isha, MizwalaTheme.teal),
-      if (_sleepEnabled) ('sleep', 'Sommeil', _sleepBedtimeDecimal, MizwalaTheme.indigo),
+      ('fajr', 'Fajr', MizwalaCalculator.format(_times.fajr), MizwalaTheme.teal),
+      ('sunrise', 'Chourouk', MizwalaCalculator.format(_times.sunrise), MizwalaTheme.teal),
+      ('dhuhr', 'Dohr', MizwalaCalculator.format(_times.dhuhr), MizwalaTheme.amber),
+      ('asr', 'Asr', MizwalaCalculator.format(_times.asr), MizwalaTheme.teal),
+      ('maghrib', 'Maghrib', MizwalaCalculator.format(_times.maghrib), MizwalaTheme.teal),
+      ('isha', 'Icha', MizwalaCalculator.format(_times.isha), MizwalaTheme.teal),
+      if (_sleepEnabled)
+        (
+          'sleep',
+          'Sommeil',
+          '${MizwalaCalculator.format(_sleepBedtimeDecimal)} ($sleepDurationLabel)',
+          MizwalaTheme.indigo
+        ),
     ];
 
     return SingleChildScrollView(
@@ -508,16 +530,16 @@ class _MizwalaHomeScreenState extends State<MizwalaHomeScreen> {
                   : null,
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 250),
-                constraints: const BoxConstraints(minWidth: 58),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                constraints: const BoxConstraints(minWidth: 64),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
                 decoration: BoxDecoration(
                   color: isActive
                       ? color.withOpacity(0.22)
                       : const Color(0x0DFFFFFF),
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(18),
                   border: Border.all(
                     color: isActive
-                        ? color.withOpacity(0.60)
+                        ? color.withOpacity(0.70)
                         : MizwalaTheme.glassBorder,
                     width: 1,
                   ),
@@ -529,19 +551,19 @@ class _MizwalaHomeScreenState extends State<MizwalaHomeScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Container(
-                          width: 6,
-                          height: 6,
+                          width: 7,
+                          height: 7,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             color: color,
                           ),
                         ),
-                        const SizedBox(width: 4),
+                        const SizedBox(width: 5),
                         Text(
                           c.$2.toUpperCase(),
                           style: TextStyle(
                             color: isActive ? color : MizwalaTheme.label2,
-                            fontSize: 10,
+                            fontSize: 10.5,
                             fontWeight: FontWeight.w600,
                             letterSpacing: 0.04,
                           ),
@@ -550,10 +572,10 @@ class _MizwalaHomeScreenState extends State<MizwalaHomeScreen> {
                     ),
                     const SizedBox(height: 5),
                     Text(
-                      MizwalaCalculator.format(c.$3),
+                      c.$3,
                       style: TextStyle(
                         color: isActive ? color : Colors.white,
-                        fontSize: 14,
+                        fontSize: 14.5,
                         fontWeight: FontWeight.w600,
                         fontFeatures: const [FontFeature.tabularFigures()],
                       ),
@@ -570,10 +592,10 @@ class _MizwalaHomeScreenState extends State<MizwalaHomeScreen> {
 
   Widget _buildBottomTabBar() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
       decoration: BoxDecoration(
         color: const Color(0x0DFFFFFF),
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(24),
         border: Border.all(color: MizwalaTheme.glassBorder),
       ),
       child: Row(
@@ -618,15 +640,15 @@ class _MizwalaHomeScreenState extends State<MizwalaHomeScreen> {
           Text(
             icon,
             style: TextStyle(
-              fontSize: 16,
+              fontSize: 17,
               color: active ? MizwalaTheme.amber : MizwalaTheme.label3,
             ),
           ),
-          const SizedBox(height: 2),
+          const SizedBox(height: 3),
           Text(
             label,
             style: TextStyle(
-              fontSize: 10.5,
+              fontSize: 11,
               fontWeight: active ? FontWeight.w600 : FontWeight.w400,
               color: active ? MizwalaTheme.amber : MizwalaTheme.label3,
             ),
