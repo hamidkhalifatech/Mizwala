@@ -1,8 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'mizwala_dial.dart';
 import 'notification_service.dart';
 import 'prayer_times.dart';
+
+const MethodChannel _settingsWidgetChannel = MethodChannel('com.mizwala.mizwala/widget');
+
+Future<void> _notifyWidgetFromSettings() async {
+  try {
+    await _settingsWidgetChannel.invokeMethod('updateWidget');
+  } catch (_) {}
+}
 
 const kPrefSleepEnabled = 'sleep_enabled';
 const kPrefSleepBedtimeH = 'sleep_bedtime_hour';
@@ -74,6 +83,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await prefs.setInt(kPrefSleepWakeupM, _wakeupMinute);
 
     await NotificationService.reschedule(_todayTimes);
+    await _notifyWidgetFromSettings();
     setState(() => _dirty = false);
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(

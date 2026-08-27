@@ -19,7 +19,7 @@ class MizwalaWidgetProvider : AppWidgetProvider() {
     companion object {
         const val ACTION_TICK = "com.mizwala.mizwala.ACTION_WIDGET_TICK"
 
-        // Constantes astronomiques Marrakech
+        // Constantes astronomiques Marrakech (100% identiques à prayer_times.dart)
         const val LAT = 31.6295
         const val LNG = -7.9811
         const val TZ = 1.0 // UTC+1 fixe
@@ -142,6 +142,44 @@ class MizwalaWidgetProvider : AppWidgetProvider() {
             val target = if (condition == "storm") storm else gray
             return lerpColor(base, target, 0.75f)
         }
+
+        // Lecture ultra-sécurisée des SharedPreferences de Flutter (supporte Long, Int, Double, String)
+        fun readPrefNumber(context: Context, keySuffix: String, defaultVal: Double): Double {
+            val prefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+            val fullKey = "flutter.$keySuffix"
+            try {
+                if (prefs.contains(fullKey)) {
+                    val v = prefs.all[fullKey]
+                    if (v is Number) return v.toDouble()
+                    if (v is String) return v.toDoubleOrNull() ?: defaultVal
+                }
+            } catch (_: Exception) {}
+            return defaultVal
+        }
+
+        fun readPrefBoolean(context: Context, keySuffix: String, defaultVal: Boolean): Boolean {
+            val prefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+            val fullKey = "flutter.$keySuffix"
+            try {
+                if (prefs.contains(fullKey)) {
+                    val v = prefs.all[fullKey]
+                    if (v is Boolean) return v
+                    if (v is String) return v.toBoolean()
+                }
+            } catch (_: Exception) {}
+            return defaultVal
+        }
+
+        fun readPrefString(context: Context, keySuffix: String): String? {
+            val prefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+            val fullKey = "flutter.$keySuffix"
+            try {
+                if (prefs.contains(fullKey)) {
+                    return prefs.all[fullKey]?.toString()
+                }
+            } catch (_: Exception) {}
+            return null
+        }
     }
 
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
@@ -157,14 +195,14 @@ class MizwalaWidgetProvider : AppWidgetProvider() {
 
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
-        if (intent.action == ACTION_TICK || intent.action == Intent.ACTION_TIME_TICK || intent.action == Intent.ACTION_TIME_CHANGED) {
-            val appWidgetManager = AppWidgetManager.getInstance(context)
-            val appWidgetIds = appWidgetManager.getAppWidgetIds(intent.component ?: android.content.ComponentName(context, MizwalaWidgetProvider::class.java))
-            for (id in appWidgetIds) {
-                updateWidget(context, appWidgetManager, id)
-            }
-            scheduleNextTick(context)
+        val appWidgetManager = AppWidgetManager.getInstance(context)
+        val componentName = android.content.ComponentName(context, MizwalaWidgetProvider::class.java)
+        val appWidgetIds = appWidgetManager.getAppWidgetIds(componentName)
+
+        for (id in appWidgetIds) {
+            updateWidget(context, appWidgetManager, id)
         }
+        scheduleNextTick(context)
     }
 
     private fun scheduleNextTick(context: Context) {
@@ -175,6 +213,7 @@ class MizwalaWidgetProvider : AppWidgetProvider() {
                 context, 0, intent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
+            // Prochaine mise à jour à la minute suivante exacte
             val nextMinute = (System.currentTimeMillis() / 60000 + 1) * 60000
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC, nextMinute, pendingIntent)
@@ -223,7 +262,7 @@ class MizwalaWidgetProvider : AppWidgetProvider() {
         val r = 133f * scale
         val discRadius = 75f * scale
 
-        // Date et heure Marrakech (UTC+1)
+        // Date et heure Marrakech (UTC+1 fixe)
         val cal = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
         cal.add(Calendar.HOUR_OF_DAY, 1)
 
@@ -237,34 +276,31 @@ class MizwalaWidgetProvider : AppWidgetProvider() {
         val currentHourDec = hour + minute / 60.0 + second / 3600.0
         val times = computePrayerTimes(year, month, day)
 
-        // Récupération SharedPreferences (Sommeil et Météo)
-        var sleepEnabled = true
-        var sleepBedtime = 23.0
-        var sleepWakeup = 6.5
+        // Récupération sécurisée des réglages utilisateur Flutter
+        val sleepEnabled = readPrefBoolean(context, "sleep_enabled", true)
+        val bH = readPrefNumber(context, "sleep_bedtime_hour", 23.0).toInt()
+        val bM = readPrefNumber(context, "sleep_bedtime_minute", 0.0).toInt()
+        val wH = readPrefNumber(context, "sleep_wakeup_hour", 6.0).toInt()
+        val wM = readPrefNumber(context, "sleep_wakeup_minute", 30.0).toInt()
+
+        val sleepBedtime = bH + bM / 60.0
+        val sleepWakeup = wH + wM / 60.0
+
         var currentTemp = 24
         var maxTemp = 28
         var minTemp = 18
         var condition = "clear"
 
-        try {
-            val flutterPrefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
-            sleepEnabled = flutterPrefs.getBoolean("flutter.sleep_enabled", true)
-            val bH = flutterPrefs.getInt("flutter.sleep_bedtime_hour", 23)
-            val bM = flutterPrefs.getInt("flutter.sleep_bedtime_minute", 0)
-            val wH = flutterPrefs.getInt("flutter.sleep_wakeup_hour", 6)
-            val wM = flutterPrefs.getInt("flutter.sleep_wakeup_minute", 30)
-            sleepBedtime = bH + bM / 60.0
-            sleepWakeup = wH + wM / 60.0
-
-            val weatherJsonStr = flutterPrefs.getString("flutter.mizwala_cached_weather", null)
-            if (weatherJsonStr != null) {
+        val weatherJsonStr = readPrefString(context, "mizwala_cached_weather")
+        if (weatherJsonStr != null) {
+            try {
                 val json = JSONObject(weatherJsonStr)
                 currentTemp = json.optDouble("currentTemp", 24.0).roundToInt()
                 maxTemp = json.optDouble("maxTemp", 28.0).roundToInt()
                 minTemp = json.optDouble("minTemp", 18.0).roundToInt()
                 condition = json.optString("conditionType", "clear")
-            }
-        } catch (_: Exception) {}
+            } catch (_: Exception) {}
+        }
 
         // Fond sombre
         val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -289,7 +325,7 @@ class MizwalaWidgetProvider : AppWidgetProvider() {
         }
         canvas.drawCircle(cx, cy, r, ringPaint)
 
-        // 2. Arc de Sommeil Indigo (diminué de 50% : 6.5px au lieu de 13px)
+        // 2. Arc de Sommeil Indigo (épaisseur diminuée de 50% : 6.5px)
         if (sleepEnabled) {
             val aStart = angleFromTop(sleepBedtime, times.dhuhr)
             val aEnd = angleFromTop(sleepWakeup, times.dhuhr)
@@ -299,7 +335,7 @@ class MizwalaWidgetProvider : AppWidgetProvider() {
             val sleepArcPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = Color.parseColor("#5E5CE6")
                 style = Paint.Style.STROKE
-                strokeWidth = 6.5f * scale // Épaisseur diminuée de moitié
+                strokeWidth = 6.5f * scale // 50% plus fin
                 strokeCap = Paint.Cap.ROUND
             }
             val oval = RectF(cx - r, cy - r, cx + r, cy + r)
@@ -349,7 +385,7 @@ class MizwalaWidgetProvider : AppWidgetProvider() {
             canvas.drawText(durStr, badgePt.x, badgePt.y + textBounds.height() / 2f - 1f, badgeTextPaint)
         }
 
-        // 3. Repères des 5 prières Teal (diminués de 50% : r=4.5px au lieu de 9px)
+        // 3. Repères des 5 prières Teal (diminués de 50% : r=4.5px)
         val prayerList = listOf(times.fajr, times.sunrise, times.asr, times.maghrib, times.isha)
         val tealPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.parseColor("#30B0C7")
@@ -378,7 +414,7 @@ class MizwalaWidgetProvider : AppWidgetProvider() {
         canvas.drawCircle(ptDohr.x, ptDohr.y, 4.5f * scale, pFillPaint)
         canvas.drawCircle(ptDohr.x, ptDohr.y, 4.5f * scale, amberPaint)
 
-        // 5. Curseur Soleil / Lune (agrandi de 30% : r=12px au lieu de 9px, noyau=6.5px)
+        // 5. Curseur Soleil / Lune (agrandi de 30% : r=12px, noyau=6.5px, halo lumineux)
         val aNow = angleFromTop(currentHourDec, times.dhuhr)
         val ptNow = getPt(aNow)
         val isDay = currentHourDec >= times.sunrise && currentHourDec < times.maghrib

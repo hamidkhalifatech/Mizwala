@@ -83,6 +83,14 @@ class _MizwalaHomeScreenState extends State<MizwalaHomeScreen> {
     }
   }
 
+const MethodChannel _widgetChannel = MethodChannel('com.mizwala.mizwala/widget');
+
+Future<void> _notifyWidget() async {
+  try {
+    await _widgetChannel.invokeMethod('updateWidget');
+  } catch (_) {}
+}
+
   void _saveSleepPrefsDebounced() {
     _sleepSaveDebounce?.cancel();
     _sleepSaveDebounce = Timer(const Duration(milliseconds: 500), () async {
@@ -96,6 +104,7 @@ class _MizwalaHomeScreenState extends State<MizwalaHomeScreen> {
       await prefs.setInt(kPrefSleepBedtimeM, bM);
       await prefs.setInt(kPrefSleepWakeupH, wH);
       await prefs.setInt(kPrefSleepWakeupM, wM);
+      await _notifyWidget();
     });
   }
 
@@ -109,6 +118,7 @@ class _MizwalaHomeScreenState extends State<MizwalaHomeScreen> {
       setState(() {
         _weatherData = weather;
       });
+      _notifyWidget();
     }
   }
 
