@@ -396,10 +396,14 @@ class _AppleFinalDialPainter extends CustomPainter {
       final rQibla = 106.0 * scale;
       final radQ = qiblaAngle! * math.pi / 180.0;
 
+      // Détection de l'alignement face à La Mecque (+/- 8 degrés)
+      final diffFromTop = (qiblaAngle! > 180.0) ? (360.0 - qiblaAngle!) : qiblaAngle!;
+      final isAligned = diffFromTop <= 8.0;
+
       // Sommet du triangle (pointe vers l'extérieur dans la direction de la Qibla)
-      final tipR = rQibla + 9.0 * scale;
-      final baseR = rQibla - 6.5 * scale;
-      final halfBaseWidth = 6.0 * scale;
+      final tipR = rQibla + 10.0 * scale;
+      final baseR = rQibla - 7.0 * scale;
+      final halfBaseWidth = 6.5 * scale;
 
       final tip = Offset(cx + tipR * math.sin(radQ), cy - tipR * math.cos(radQ));
       
@@ -416,29 +420,39 @@ class _AppleFinalDialPainter extends CustomPainter {
         ..lineTo(baseR_.dx, baseR_.dy)
         ..close();
 
-      // Halo émeraude
+      // Halo émeraude / or si aligné
       canvas.drawCircle(
         baseCenter,
-        12.0 * scale,
-        Paint()..color = const Color(0x3310B981),
+        (isAligned ? 16.0 : 12.0) * scale,
+        Paint()
+          ..color = isAligned
+              ? const Color(0x6610B981)
+              : const Color(0x2E10B981),
       );
 
       // Fond du triangle Émeraude
       canvas.drawPath(
         qiblaPath,
         Paint()
-          ..color = MizwalaTheme.emerald
+          ..color = isAligned ? const Color(0xFF34D399) : MizwalaTheme.emerald
           ..style = PaintingStyle.fill,
       );
 
-      // Bordure dorée / vert clair
+      // Bordure vert menthe / dorée
       canvas.drawPath(
         qiblaPath,
         Paint()
-          ..color = const Color(0xFF6EE7B7)
+          ..color = isAligned ? const Color(0xFFFDE047) : const Color(0xFF6EE7B7)
           ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.2 * scale
+          ..strokeWidth = (isAligned ? 1.8 : 1.2) * scale
           ..strokeJoin = StrokeJoin.round,
+      );
+
+      // Petit repère central
+      canvas.drawCircle(
+        baseCenter,
+        2.5 * scale,
+        Paint()..color = isAligned ? Colors.black : Colors.white70,
       );
     }
 

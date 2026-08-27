@@ -36,6 +36,7 @@ class _MizwalaHomeScreenState extends State<MizwalaHomeScreen> {
   Timer? _sleepSaveDebounce;
   StreamSubscription<double?>? _qiblaSubscription;
   double? _qiblaAngle;
+  double _deviceHeading = 0.0;
   late PrayerTimes _times;
   WeatherData? _weatherData;
 
@@ -66,10 +67,19 @@ class _MizwalaHomeScreenState extends State<MizwalaHomeScreen> {
     _loadWeather();
     QiblaService.init();
 
-    _qiblaSubscription = QiblaService.qiblaScreenAngleStream.listen((angle) {
-      if (mounted && angle != null) {
+    _qiblaSubscription = QiblaService.deviceHeadingStream.listen((heading) {
+      final targetAngle =
+          (QiblaService.qiblaBearingFromNorth - heading + 360.0) % 360.0;
+      if (mounted) {
         setState(() {
-          _qiblaAngle = angle;
+          _deviceHeading = heading;
+          if (_qiblaAngle == null) {
+            _qiblaAngle = targetAngle;
+          } else {
+            final diff =
+                QiblaService.shortestAngleDiff(_qiblaAngle!, targetAngle);
+            _qiblaAngle = (_qiblaAngle! + diff * 0.40 + 360.0) % 360.0;
+          }
         });
       }
     });
@@ -549,7 +559,9 @@ class _MizwalaHomeScreenState extends State<MizwalaHomeScreen> {
       (
         'qibla',
         'Qibla',
-        '${QiblaService.qiblaBearingFromNorth.round()}° Est',
+        (_qiblaAngle != null && ((_qiblaAngle! <= 8.0) || (_qiblaAngle! >= 352.0)))
+            ? '🕋 Alignée (${QiblaService.qiblaBearingFromNorth.round()}°)'
+            : '${QiblaService.qiblaBearingFromNorth.round()}° E (Cap ${_deviceHeading.round()}°)',
         MizwalaTheme.emerald
       ),
     ];
