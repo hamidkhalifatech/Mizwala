@@ -21,9 +21,6 @@ class MainActivity : FlutterActivity() {
     private val COMPASS_CHANNEL = "com.mizwala.mizwala/compass"
 
     private var sensorManager: SensorManager? = null
-    private var rotationSensor: Sensor? = null
-    private var accelSensor: Sensor? = null
-    private var magSensor: Sensor? = null
 
     private val lastAccelerometer = FloatArray(3)
     private val lastMagnetometer = FloatArray(3)
@@ -61,14 +58,11 @@ class MainActivity : FlutterActivity() {
             }
         }
 
-        // Flux haute précision de la boussole et de l'orientation en temps réel (60 FPS)
+        // Flux boussole multi-capteurs haute compatibilité (Rotation Vector, Geomagnetic, Accel+Mag, Orientation)
         EventChannel(flutterEngine.dartExecutor.binaryMessenger, COMPASS_CHANNEL).setStreamHandler(
             object : EventChannel.StreamHandler {
                 override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
                     sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
-                    rotationSensor = sensorManager?.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
-                    accelSensor = sensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
-                    magSensor = sensorManager?.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD)
 
                     lastAccelerometerSet = false
                     lastMagnetometerSet = false
@@ -80,41 +74,42 @@ class MainActivity : FlutterActivity() {
                             var hasAzimuth = false
                             var azimuthDeg = 0.0
 
-                            if (event.sensor.type == Sensor.TYPE_ROTATION_VECTOR) {
-                                SensorManager.getRotationMatrixFromVector(rMat, event.values)
-                                SensorManager.getOrientation(rMat, orientation)
+                            val type = event.sensor.type
 
-                                // Compensation de l'inclinaison si le téléphone est tenu verticalement
-                                if (abs(orientation[1]) > Math.PI / 4) {
-                                    SensorManager.remapCoordinateSystem(
-                                        rMat,
-                                        SensorManager.AXIS_X,
-                                        SensorManager.AXIS_Z,
-                                        remappedRMat
-                                    )
-                                    SensorManager.getOrientation(remappedRMat, orientation)
-                                }
+                            if (type == Sensor.TYPE_ROTATION_VECTOR || type == Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR) {
+                                try {
+                                    SensorManager.getRotationMatrixFromVector(rMat, event.values)
+                                    SensorManager.getOrientation(rMat, orientation)
 
-                                var deg = Math.toDegrees(orientation[0].toDouble())
-                                if (deg < 0) deg += 360.0
-                                azimuthDeg = deg % 360.0
-                                hasAzimuth = true
-                            } else {
-                                if (event.sensor.type == Sensor.TYPE_ACCELEROMETER) {
-                                    // Filtre passe-bas léger sur l'accéléromètre
-                                    lastAccelerometer[0] = lastAccelerometer[0] * 0.8f + event.values[0] * 0.2f
-                                    lastAccelerometer[1] = lastAccelerometer[1] * 0.8f + event.values[1] * 0.2f
-                                    lastAccelerometer[2] = lastAccelerometer[2] * 0.8f + event.values[2] * 0.2f
-                                    lastAccelerometerSet = true
-                                } else if (event.sensor.type == Sensor.TYPE_MAGNETIC_FIELD) {
-                                    // Filtre passe-bas léger sur le magnétomètre
-                                    lastMagnetometer[0] = lastMagnetometer[0] * 0.8f + event.values[0] * 0.2f
-                                    lastMagnetometer[1] = lastMagnetometer[1] * 0.8f + event.values[1] * 0.2f
-                                    lastMagnetometer[2] = lastMagnetometer[2] * 0.8f + event.values[2] * 0.2f
-                                    lastMagnetometerSet = true
-                                }
+                                    if (abs(orientation[1]) > Math.PI / 4) {
+                                        SensorManager.remapCoordinateSystem(
+                                            rMat,
+                                            SensorManager.AXIS_X,
+                                            SensorManager.AXIS_Z,
+                                            remappedRMat
+                                        )
+                                        SensorManager.getOrientation(remappedRMat, orientation)
+                                    }
 
-                                if (lastAccelerometerSet && lastMagnetometerSet) {
+                                    var deg = Math.toDegrees(orientation[0].toDouble())
+                                    if (deg < 0) deg += 360.0
+                                    azimuthDeg = deg % 360.0
+                                    hasAzimuth = true
+                                } catch (_: Exception) {}
+                            } else if (type == Sensor.TYPE_ACCELEROMETER) {
+                                lastAccelerometer[0] = lastAccelerometer[0] * 0.7f + event.values[0] * 0.3f
+                                lastAccelerometer[1] = lastAccelerometer[1] * 0.7f + event.values[1] * 0.3f
+                                lastAccelerometer[2] = lastAccelerometer[2] * 0.7f + event.values[2] * 0.3f
+                                lastAccelerometerSet = true
+                            } else if (type == Sensor.TYPE_MAGNETIC_FIELD) {
+                                lastMagnetometer[0] = lastMagnetometer[0] * 0.7f + event.values[0] * 0.3f
+                                lastMagnetometer[1] = lastMagnetometer[1] * 0.7f + event.values[1] * 0.3f
+                                lastMagnetometer[2] = lastMagnetometer[2] * 0.7f + event.values[2] * 0.3f
+                                lastMagnetometerSet = true
+                            }
+
+                            if (!hasAzimuth && lastAccelerometerSet && lastMagnetometerSet) {
+                                try {
                                     if (SensorManager.getRotationMatrix(rMat, null, lastAccelerometer, lastMagnetometer)) {
                                         SensorManager.getOrientation(rMat, orientation)
                                         if (abs(orientation[1]) > Math.PI / 4) {
@@ -131,7 +126,7 @@ class MainActivity : FlutterActivity() {
                                         azimuthDeg = deg % 360.0
                                         hasAzimuth = true
                                     }
-                                }
+                                } catch (_: Exception) {}
                             }
 
                             if (hasAzimuth) {
@@ -146,14 +141,20 @@ class MainActivity : FlutterActivity() {
                         override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
                     }
 
-                    if (rotationSensor != null) {
-                        sensorManager?.registerListener(sensorEventListener, rotationSensor, SensorManager.SENSOR_DELAY_UI)
-                    } else {
-                        if (accelSensor != null) {
-                            sensorManager?.registerListener(sensorEventListener, accelSensor, SensorManager.SENSOR_DELAY_UI)
+                    // Enregistrement exhaustif de tous les capteurs disponibles sur le smartphone
+                    val sm = sensorManager
+                    if (sm != null) {
+                        sm.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)?.let {
+                            sm.registerListener(sensorEventListener, it, SensorManager.SENSOR_DELAY_UI)
                         }
-                        if (magSensor != null) {
-                            sensorManager?.registerListener(sensorEventListener, magSensor, SensorManager.SENSOR_DELAY_UI)
+                        sm.getDefaultSensor(Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR)?.let {
+                            sm.registerListener(sensorEventListener, it, SensorManager.SENSOR_DELAY_UI)
+                        }
+                        sm.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)?.let {
+                            sm.registerListener(sensorEventListener, it, SensorManager.SENSOR_DELAY_UI)
+                        }
+                        sm.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD)?.let {
+                            sm.registerListener(sensorEventListener, it, SensorManager.SENSOR_DELAY_UI)
                         }
                     }
                 }
