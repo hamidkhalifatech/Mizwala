@@ -73,12 +73,14 @@ class _MizwalaHomeScreenState extends State<MizwalaHomeScreen> {
       if (mounted) {
         setState(() {
           _deviceHeading = heading;
-          if (_qiblaAngle == null) {
+          if (_qiblaAngle == null ||
+              (QiblaService.shortestAngleDiff(_qiblaAngle!, targetAngle).abs() >
+                  40.0)) {
             _qiblaAngle = targetAngle;
           } else {
             final diff =
                 QiblaService.shortestAngleDiff(_qiblaAngle!, targetAngle);
-            _qiblaAngle = (_qiblaAngle! + diff * 0.40 + 360.0) % 360.0;
+            _qiblaAngle = (_qiblaAngle! + diff * 0.50 + 360.0) % 360.0;
           }
         });
       }

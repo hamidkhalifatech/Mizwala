@@ -6,11 +6,11 @@ import 'package:flutter_compass/flutter_compass.dart';
 import 'package:geolocator/geolocator.dart';
 
 class QiblaService {
-  // Coordonnées de la Kaaba (La Mecque)
+  // Coordonnées géodésiques de la Kaaba (La Mecque)
   static const double kaabaLat = 21.422487;
   static const double kaabaLng = 39.826206;
 
-  // Coordonnées par défaut de Marrakech (31.63°N, 7.98°O)
+  // Coordonnées de Marrakech par défaut (31.63°N, 7.98°O)
   static double currentLat = 31.6295;
   static double currentLng = -7.9811;
 
@@ -45,7 +45,7 @@ class QiblaService {
         qiblaBearingFromNorth = calculateQiblaAngle(currentLat, currentLng);
       }
     } catch (e) {
-      debugPrint('Qibla location note: $e');
+      debugPrint('Qibla location init: $e');
     }
   }
 
@@ -66,23 +66,51 @@ class QiblaService {
     return angle;
   }
 
-  /// Flux continu de l'orientation du smartphone (cap en degrés [0, 360[ par rapport au Nord)
+  /// Flux continu à double source (Canal natif Android 3D + FlutterCompass) pour une réactivité 100% garantie
   static Stream<double> get deviceHeadingStream {
-    try {
-      return _compassChannel
-          .receiveBroadcastStream()
-          .map<double>((dynamic event) {
-        if (event is num) {
-          return event.toDouble();
-        }
-        return 0.0;
-      });
-    } catch (_) {
-      return FlutterCompass.events?.map<double>((event) {
-            return event.heading ?? 0.0;
-          }) ??
-          Stream.value(0.0);
-    }
+    late StreamController<double> controller;
+    StreamSubscription<dynamic>? subNative;
+    StreamSubscription<CompassEvent>? subPlugin;
+
+    controller = StreamController<double>.broadcast(
+      onListen: () {
+        try {
+          subNative = _compassChannel.receiveBroadcastStream().listen(
+            (dynamic event) {
+              if (event is num && !controller.isClosed) {
+                var h = event.toDouble();
+                if (h < 0) h += 360.0;
+                controller.add(h % 360.0);
+              }
+            },
+            onError: (err) {
+              debugPrint('Native compass stream note: $err');
+            },
+          );
+        } catch (_) {}
+
+        try {
+          subPlugin = FlutterCompass.events?.listen(
+            (CompassEvent event) {
+              if (event.heading != null && !controller.isClosed) {
+                var h = event.heading!;
+                if (h < 0) h += 360.0;
+                controller.add(h % 360.0);
+              }
+            },
+            onError: (err) {
+              debugPrint('FlutterCompass stream note: $err');
+            },
+          );
+        } catch (_) {}
+      },
+      onCancel: () {
+        subNative?.cancel();
+        subPlugin?.cancel();
+      },
+    );
+
+    return controller.stream;
   }
 
   /// Calcule la différence angulaire la plus courte entre deux angles en degrés [-180, 180]

@@ -25,8 +25,8 @@ class MainActivity : FlutterActivity() {
     private var accelSensor: Sensor? = null
     private var magSensor: Sensor? = null
 
-    private var lastAccelerometer = FloatArray(3)
-    private var lastMagnetometer = FloatArray(3)
+    private val lastAccelerometer = FloatArray(3)
+    private val lastMagnetometer = FloatArray(3)
     private var lastAccelerometerSet = false
     private var lastMagnetometerSet = false
 
@@ -70,16 +70,20 @@ class MainActivity : FlutterActivity() {
                     accelSensor = sensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
                     magSensor = sensorManager?.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD)
 
+                    lastAccelerometerSet = false
+                    lastMagnetometerSet = false
+
                     sensorEventListener = object : SensorEventListener {
                         override fun onSensorChanged(event: SensorEvent?) {
                             if (event == null) return
 
-                            var azimuth = -1.0
+                            var hasAzimuth = false
+                            var azimuthDeg = 0.0
 
                             if (event.sensor.type == Sensor.TYPE_ROTATION_VECTOR) {
                                 SensorManager.getRotationMatrixFromVector(rMat, event.values)
                                 SensorManager.getOrientation(rMat, orientation)
-                                
+
                                 // Compensation de l'inclinaison si le téléphone est tenu verticalement
                                 if (abs(orientation[1]) > Math.PI / 4) {
                                     SensorManager.remapCoordinateSystem(
@@ -90,16 +94,26 @@ class MainActivity : FlutterActivity() {
                                     )
                                     SensorManager.getOrientation(remappedRMat, orientation)
                                 }
-                                
-                                azimuth = Math.toDegrees(orientation[0].toDouble())
+
+                                var deg = Math.toDegrees(orientation[0].toDouble())
+                                if (deg < 0) deg += 360.0
+                                azimuthDeg = deg % 360.0
+                                hasAzimuth = true
                             } else {
                                 if (event.sensor.type == Sensor.TYPE_ACCELEROMETER) {
-                                    System.arraycopy(event.values, 0, lastAccelerometer, 0, event.values.size)
+                                    // Filtre passe-bas léger sur l'accéléromètre
+                                    lastAccelerometer[0] = lastAccelerometer[0] * 0.8f + event.values[0] * 0.2f
+                                    lastAccelerometer[1] = lastAccelerometer[1] * 0.8f + event.values[1] * 0.2f
+                                    lastAccelerometer[2] = lastAccelerometer[2] * 0.8f + event.values[2] * 0.2f
                                     lastAccelerometerSet = true
                                 } else if (event.sensor.type == Sensor.TYPE_MAGNETIC_FIELD) {
-                                    System.arraycopy(event.values, 0, lastMagnetometer, 0, event.values.size)
+                                    // Filtre passe-bas léger sur le magnétomètre
+                                    lastMagnetometer[0] = lastMagnetometer[0] * 0.8f + event.values[0] * 0.2f
+                                    lastMagnetometer[1] = lastMagnetometer[1] * 0.8f + event.values[1] * 0.2f
+                                    lastMagnetometer[2] = lastMagnetometer[2] * 0.8f + event.values[2] * 0.2f
                                     lastMagnetometerSet = true
                                 }
+
                                 if (lastAccelerometerSet && lastMagnetometerSet) {
                                     if (SensorManager.getRotationMatrix(rMat, null, lastAccelerometer, lastMagnetometer)) {
                                         SensorManager.getOrientation(rMat, orientation)
@@ -112,16 +126,19 @@ class MainActivity : FlutterActivity() {
                                             )
                                             SensorManager.getOrientation(remappedRMat, orientation)
                                         }
-                                        azimuth = Math.toDegrees(orientation[0].toDouble())
+                                        var deg = Math.toDegrees(orientation[0].toDouble())
+                                        if (deg < 0) deg += 360.0
+                                        azimuthDeg = deg % 360.0
+                                        hasAzimuth = true
                                     }
                                 }
                             }
 
-                            if (azimuth >= -180.0) {
-                                if (azimuth < 0) azimuth += 360.0
-                                val finalAzimuth = azimuth % 360.0
+                            if (hasAzimuth) {
                                 mainHandler.post {
-                                    events?.success(finalAzimuth)
+                                    try {
+                                        events?.success(azimuthDeg)
+                                    } catch (_: Exception) {}
                                 }
                             }
                         }
@@ -130,11 +147,14 @@ class MainActivity : FlutterActivity() {
                     }
 
                     if (rotationSensor != null) {
-                        sensorManager?.registerListener(sensorEventListener, rotationSensor, SensorManager.SENSOR_DELAY_GAME)
-                    }
-                    if (accelSensor != null && magSensor != null) {
-                        sensorManager?.registerListener(sensorEventListener, accelSensor, SensorManager.SENSOR_DELAY_GAME)
-                        sensorManager?.registerListener(sensorEventListener, magSensor, SensorManager.SENSOR_DELAY_GAME)
+                        sensorManager?.registerListener(sensorEventListener, rotationSensor, SensorManager.SENSOR_DELAY_UI)
+                    } else {
+                        if (accelSensor != null) {
+                            sensorManager?.registerListener(sensorEventListener, accelSensor, SensorManager.SENSOR_DELAY_UI)
+                        }
+                        if (magSensor != null) {
+                            sensorManager?.registerListener(sensorEventListener, magSensor, SensorManager.SENSOR_DELAY_UI)
+                        }
                     }
                 }
 
